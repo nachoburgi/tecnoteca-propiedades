@@ -7,7 +7,7 @@ let primera = true;
 let mapa = null, capa = null;
 if (window.L) {
   mapa = L.map('mapa', { scrollWheelZoom: false, attributionControl: true }).setView([-32.935, -60.67], 12);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap · © CARTO', maxZoom: 18 }).addTo(mapa);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18, className: 'tiles-dark' }).addTo(mapa);
   capa = L.layerGroup().addTo(mapa);
 } else {
   $('#mapa').innerHTML = '<div class="ai-box" style="color:var(--muted)">No se pudo cargar el mapa (sin conexión al CDN).</div>';

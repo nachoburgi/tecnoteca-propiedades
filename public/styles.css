@@ -133,3 +133,4 @@ button { font: inherit; cursor: pointer; }
   .top { padding: 12px 16px; }
   .brand small { display: none; }
 }
+.tiles-dark { filter: invert(1) hue-rotate(180deg) brightness(.8) contrast(.9) saturate(.6); }
