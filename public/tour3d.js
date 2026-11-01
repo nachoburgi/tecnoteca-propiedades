@@ -12,7 +12,10 @@ function animarA(pos, mira, ms = 1600, alTerminar) {
 }
 
 function caja(w, h, d, color, x, y, z, opts = {}) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, roughness: opts.rough ?? .8, metalness: 0, transparent: !!opts.op, opacity: opts.op ?? 1, emissive: opts.emissive || 0x000000, emissiveIntensity: opts.ei || 0 }));
+  const mat = new THREE.MeshStandardMaterial({ color: opts.map ? 0xffffff : color, map: opts.map || null, roughness: opts.rough ?? .8, metalness: opts.metal || 0, transparent: !!opts.op, opacity: opts.op ?? 1, emissive: opts.emissive || 0x000000, emissiveIntensity: opts.ei || 0 });
+  const esPared = h === ALTO && color === 0xf4efe9;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), esPared ? [mat, mat, new THREE.MeshStandardMaterial({ color: 0x2b2826 }), mat, mat, mat] : mat);
+  m.userData.pared = esPared;
   m.position.set(x, y + h / 2, z); m.castShadow = true; m.receiveShadow = true;
   scene.add(m); return m;
 }
@@ -33,6 +36,80 @@ function destacar(x, z, r = .9) {
   m.rotation.x = -Math.PI / 2; m.position.set(x, .03, z); scene.add(m); anillos.push(m);
 }
 
+// --- Texturas dibujadas (pisos de madera, cerámica, alfombras) ---
+function textura(dibujar, rx = 1, ry = rx) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  dibujar(c.getContext('2d'));
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+const madera = (rx, ry) => textura(g => {
+  const tonos = ['#b98a5e', '#a87b52', '#c69a6c', '#9d7149', '#b3845a', '#c08f60'];
+  for (let i = 0; i < 8; i++) {
+    g.fillStyle = tonos[i % 6]; g.fillRect(0, i * 32, 256, 32);
+    g.fillStyle = 'rgba(70,40,15,.10)'; for (let k = 0; k < 5; k++) g.fillRect(0, i * 32 + 5 + k * 6, 256, 1);
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(0, i * 32, 256, 1.5); g.fillRect((i * 97) % 256, i * 32, 1.5, 32);
+  }
+}, rx, ry);
+const ceramica = (rx, ry) => textura(g => {
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { g.fillStyle = (i + j) % 2 ? '#e9e6e1' : '#d8d4ce'; g.fillRect(i * 64, j * 64, 64, 64); }
+  g.strokeStyle = '#b9b3ab'; g.lineWidth = 2; for (let k = 0; k <= 256; k += 64) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k, 256); g.moveTo(0, k); g.lineTo(256, k); g.stroke(); }
+}, rx, ry);
+const alfombra = (fondo, linea) => textura(g => {
+  g.fillStyle = fondo; g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = linea; g.lineWidth = 10; g.strokeRect(12, 12, 232, 232);
+  g.lineWidth = 3; for (let k = 40; k < 220; k += 24) { g.beginPath(); g.moveTo(k, 30); g.lineTo(256 - k, 226); g.stroke(); }
+});
+function plano(w, d, tex, x, z, y = .085) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: tex, roughness: .9 }));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true; scene.add(m); return m;
+}
+function cilindro(r, h, color, x, y, z, opts = {}) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, opts.r2 ?? r, h, 28), new THREE.MeshStandardMaterial({ color, roughness: opts.rough ?? .7, metalness: opts.metal || 0, transparent: !!opts.op, opacity: opts.op ?? 1, emissive: opts.emissive || 0, emissiveIntensity: opts.ei || 0 }));
+  m.position.set(x, y + h / 2, z); m.castShadow = true; m.receiveShadow = true; scene.add(m); return m;
+}
+function planta(x, z, alto = 1) {
+  cilindro(.2, .35, 0xc0663a, x, 0, z, { r2: .15 });
+  [[0, .75, 0, .32], [.12, .95, .08, .24], [-.1, 1.05, -.06, .22]].forEach(([dx, y, dz, r]) => {
+    const h = new THREE.Mesh(new THREE.SphereGeometry(r * alto, 12, 10), new THREE.MeshStandardMaterial({ color: 0x3f7f3a, roughness: .9 }));
+    h.position.set(x + dx, y * alto, z + dz); h.castShadow = true; scene.add(h);
+  });
+}
+// Sillón de 3 cuerpos mirando hacia +z (hacia la tele)
+function sillon(x, z, ancho = 2.4) {
+  caja(ancho, .42, .95, 0xeeeae4, x, .05, z);
+  caja(ancho, .55, .25, 0xe2ddd5, x, .4, z - .42);
+  caja(.22, .62, .95, 0xe2ddd5, x - ancho / 2 + .11, .05, z); caja(.22, .62, .95, 0xe2ddd5, x + ancho / 2 - .11, .05, z);
+  caja(.42, .38, .14, 0xc8102e, x - ancho / 4, .5, z - .25); caja(.42, .38, .14, 0xc8102e, x + ancho / 4, .5, z - .25);
+  [-1, 1].forEach(i => [-1, 1].forEach(k => caja(.06, .05, .06, 0x2b2826, x + i * (ancho / 2 - .15), 0, z + k * .4)));
+}
+function cama(x, z, ancho) {
+  caja(ancho + .1, .9, .1, 0x5a4636, x, 0, z - 1.05); // respaldo
+  caja(ancho, .3, 2, 0x8a6a4a, x, 0, z); // base
+  caja(ancho - .06, .18, 1.94, 0xfbfaf8, x, .3, z); // colchón
+  caja(ancho - .02, .06, 1.2, 0xc8102e, x, .48, z + .38); // acolchado
+  caja(ancho * .4, .14, .4, 0xffffff, x - ancho * .23, .48, z - .72); caja(ancho * .4, .14, .4, 0xffffff, x + ancho * .23, .48, z - .72);
+  [-1, 1].forEach(i => {
+    const nx = x + i * (ancho / 2 + .32);
+    caja(.45, .5, .4, 0x8a6a4a, nx, 0, z - .8);
+    cilindro(.12, .3, 0xfff4d6, nx, .5, z - .8, { r2: .16, emissive: 0xffd27a, ei: .5 });
+  });
+  plano(ancho + .8, 1.4, alfombra('#d9cfc2', '#b9a993'), x, z + 1.3, .09);
+}
+function cocina(x0, zPared, largo) {
+  caja(largo, .88, .62, 0xf7f5f2, x0, 0, zPared + .31); // bajo mesada
+  caja(largo, .05, .66, 0x2b2826, x0, .88, zPared + .33, { rough: .3 }); // mesada
+  caja(largo, .6, .35, 0xf7f5f2, x0, 1.45, zPared + .18); // alacenas
+  caja(.55, .02, .4, 0x9aa3a8, x0 + largo / 4, .93, zPared + .33, { metal: .6, rough: .3 }); // bacha
+  [[-.15, 0], [.15, 0], [-.15, .25], [.15, .25]].forEach(([dx, dz]) => cilindro(.08, .01, 0x1f1d1b, x0 - largo / 4 + dx, .93, zPared + .2 + dz));
+  caja(.65, 1.8, .62, 0xcfd3d6, x0 - largo / 2 - .36, 0, zPared + .31, { metal: .5, rough: .35 }); // heladera
+}
+function comedor(x, z) {
+  cilindro(.6, .04, 0xf4efe9, x, .74, z); cilindro(.05, .74, 0x2b2826, x, 0, z);
+  [[.85, 0], [-.85, 0], [0, .85], [0, -.85]].forEach(([dx, dz]) => { cilindro(.2, .05, 0xc8102e, x + dx, .45, z + dz); cilindro(.03, .45, 0x2b2826, x + dx, 0, z + dz); });
+  cilindro(.25, .02, 0xffe7b0, x, 2.3, z, { emissive: 0xffd27a, ei: .4 });
+}
+
 function construir(p, contado) {
   const tags = new Set([...(p.estilo_vida || [])]);
   const pidio = new Set(p.coincide_con || []);
@@ -47,6 +124,8 @@ function construir(p, contado) {
   const suelo = new THREE.Mesh(new THREE.CircleGeometry(80, 64), new THREE.MeshStandardMaterial({ color: esCasa || tags.has('verde') ? 0x9cc28a : 0xe6e1dc }));
   suelo.rotation.x = -Math.PI / 2; suelo.receiveShadow = true; scene.add(suelo);
   caja(W, .08, D, piso, 0, 0, 0, { rough: .6 });
+  plano(W - .3, D - .3, madera(W / 2.5, D / 2.5), 0, 0);
+  plano(3.2, 2.2, ceramica(2, 1.4), -W / 2 + 1.75, -D / 2 + 1.25, .088);
 
   // Paredes perimetrales (sin techo: vista "casa de muñecas")
   caja(W, H, e, pared, 0, 0, -D / 2); caja(e, H, D, pared, -W / 2, 0, 0); caja(e, H, D, pared, W / 2, 0, 0);
@@ -65,8 +144,8 @@ function construir(p, contado) {
       const esOficina = i === dorms - 1 && dorms > 1 && (tags.has('home office') || pidio.has('home office'));
       if (esOficina) items.push(['home office', x0, -D * .25]);
       else {
-        caja(Math.min(1.6, anchoD * .7), .5, 2, 0xffffff, x0, 0, -D / 2 + 1.2); // cama
-        caja(Math.min(1.6, anchoD * .7), .25, .6, 0xc8102e, x0, .5, -D / 2 + .5); // almohadas
+        cama(x0, -D / 2 + 1.3, Math.min(1.6, anchoD * .55));
+        planta(xDiv + anchoD * (i + 1) - .4, -D * .2 + D * .3 - .4, .8);
         cartel(i === 0 ? 'Dormitorio' : 'Dormitorio ' + (i + 1), x0, 2.3, -D * .25, '#6b6560');
         AMB.push({ nombre: i === 0 ? 'Dormitorio' : 'Dormitorio ' + (i + 1), icono: '🛏', x: x0, z: -D / 2 + 2.6, mira: [x0, .6, -D / 2 + .6] });
       }
@@ -74,17 +153,20 @@ function construir(p, contado) {
   }
   // Living-comedor
   const xl = (-W / 2 + xDiv) / 2;
-  caja(2.4, .45, .9, 0x6b6560, xl, 0, D / 2 - 1.4); caja(2.4, .8, .25, 0x5a5550, xl, 0, D / 2 - 1.85); // sillón
-  caja(1.1, .4, .6, 0x8a6a4a, xl, 0, D / 2 - 2.6); // mesa ratona
-  caja(1.6, .75, .9, 0x8a6a4a, xl, 0, -D / 2 + 1.3); // comedor
-  caja(2, .9, .6, 0xffffff, -W / 2 + 1.1, 0, -D / 2 + .4); // cocina
+  plano(3, 2.2, alfombra('#3a3633', '#c8102e'), xl, D / 2 - 1.9, .09);
+  sillon(xl, D / 2 - 2.55);
+  caja(1.1, .04, .6, 0xbfe3f5, xl, .38, D / 2 - 1.55, { op: .55, rough: .1 }); caja(1, .38, .5, 0x2b2826, xl, 0, D / 2 - 1.55, { op: .9 }); // mesa ratona
+  caja(2, .45, .4, 0x5a4636, xl, 0, D / 2 - .35); caja(1.5, .85, .05, 0x111111, xl, .55, D / 2 - .3, { emissive: 0x1d4ed8, ei: .15, rough: .2 }); // rack y tele
+  planta(xl + 1.5, D / 2 - .45, 1.2); planta(xl - 1.5, D / 2 - .45, .9);
+  comedor(xl + (dorms ? .2 : .6), -D / 2 + 2.1);
+  cocina(-W / 2 + 1.75, -D / 2 + .08, 2.2);
   cartel(amb === 1 ? 'Ambiente único' : 'Living · cocina', xl, 2.3, 0, '#6b6560');
   AMB.unshift({ nombre: amb === 1 ? 'Ambiente único' : 'Living', icono: '🛋', x: xl, z: -D / 2 + 2.4, mira: [xl, .6, D / 2 - 1.6] });
   AMB.splice(1, 0, { nombre: 'Cocina', icono: '🍳', x: -W / 2 + 2.2, z: -D / 2 + 2.6, mira: [-W / 2 + 1.1, .9, -D / 2 + .4] });
 
   // Personalización según lo que contó el cliente
   if (tags.has('home office') || pidio.has('home office')) {
-    const [x, z] = items.find(i => i[0] === 'home office')?.slice(1) || [xl - 1.2, -.4];
+    const [x, z] = items.find(i => i[0] === 'home office')?.slice(1) || [-W / 2 + .9, .3];
     caja(1.4, .75, .7, 0xf4efe9, x, 0, z); caja(.7, .45, .05, 0x1f1d1b, x, .75, z - .2, { emissive: 0x3b82f6, ei: .6 });
     caja(.5, .9, .5, 0xc8102e, x, 0, z + .7);
     cartel('💻 Tu home office', x, 2.6, z); AMB.push({ nombre: 'Home office', icono: '💻', x: x + .2, z: z + 2.2, mira: [x, .9, z - .2] }); if (pidio.has('home office')) destacar(x, z);
@@ -126,7 +208,7 @@ function construir(p, contado) {
     const h = new THREE.Mesh(new THREE.SphereGeometry(.35, 12, 10), new THREE.MeshStandardMaterial({ color: 0x4f8f45 })); h.position.set(x, .75, z); scene.add(h);
   });
   // Paredes: se registran para "subirlas" cuando entrás a un ambiente
-  scene.children.forEach(m => { if (m.isMesh && m.geometry.parameters?.height === H && m.material.color.getHex() === pared) paredes.push(m); });
+  scene.children.forEach(m => { if (m.userData.pared) paredes.push(m); });
   return { W, D };
 }
 
@@ -257,3 +339,7 @@ function renderNotas() {
   const n = (window.notasVisita?.[propActual?.id] || []);
   $('#t3dNotas').innerHTML = n.map(x => `<li><b>${x.ambiente.replace(/[<>&]/g, '')}:</b> ${x.texto.replace(/[<>&]/g, '')}</li>`).join('');
 }
+
+// Link directo: /?ver3d=LP-04 abre el recorrido de esa propiedad
+const ver3d = new URLSearchParams(location.search).get('ver3d');
+if (ver3d) fetch('/api/propiedad/' + encodeURIComponent(ver3d)).then(r => r.ok ? r.json() : null).then(p => p && window.abrir3D(p));

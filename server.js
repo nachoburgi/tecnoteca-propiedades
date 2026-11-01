@@ -535,6 +535,8 @@ app.post('/api/voz', async (req, res) => {
   }
 });
 
+// Link directo al recorrido 3D de una propiedad (?ver3d=LP-04)
+app.get('/api/propiedad/:id', (req, res) => { const p = PROPIEDADES.find(x => x.id === req.params.id); p ? res.json(p) : res.status(404).json({ error: 'No existe' }); });
 app.post('/api/escena', async (req, res) => {
   const { sessionId, propiedad_id } = req.body || {};
   const prop = PROPIEDADES.find(p => p.id === propiedad_id);
