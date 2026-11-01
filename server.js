@@ -187,10 +187,14 @@ function agendarVisita(a, ses) {
   const v = { id: 'V-' + (visitas.length + 1), propiedad_id: prop.id, lead: lead ? lead.nombre : 'Cliente web', fecha_hora: fecha.toISOString(), ejemplo: false };
   visitas.push(v);
   if (lead) lead.temperatura = 'caliente';
-  return { ok: true, visita: v.id, propiedad: prop.titulo, direccion: prop.direccion, cuando: fechaLinda(fecha) };
+  return {
+    ok: true, visita: v.id, propiedad: prop.titulo, direccion: prop.direccion, cuando: fechaLinda(fecha), fecha: fecha.toISOString(),
+    // Ficha para la tarjeta de visita confirmada y el recorrido 3D del cliente
+    ficha: { id: prop.id, titulo: prop.titulo, zona: prop.zona, operacion: prop.operacion, tipo: prop.tipo, ambientes: prop.ambientes, m2: prop.m2, precio: fmtPrecio(prop), mascotas: prop.mascotas, cochera: prop.cochera, estilo_vida: prop.estilo_vida, descripcion: prop.descripcion, foto: prop.foto, direccion: prop.direccion, lat: prop.lat, lng: prop.lng },
+  };
 }
 
-const fechaLinda = d => d.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', weekday: 'long', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fechaLinda = d => d.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', weekday: 'long', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) + ' h';
 
 function ejecutarTool(nombre, args, ses) {
   if (nombre === 'buscar_propiedades') return buscarPropiedades(args, ses);

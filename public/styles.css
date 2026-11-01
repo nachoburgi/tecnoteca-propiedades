@@ -231,3 +231,14 @@ h1, h2, h3, .serif { font-family: 'DM Serif Display', Georgia, serif; font-weigh
 .call-now { margin-left: auto; background: #fff; color: var(--rojo); border: 1.5px solid var(--rojo); border-radius: 999px; padding: 8px 14px; font-weight: 700; min-height: 40px; }
 .call-tip { background: #fff8e6; color: #8a5a00; font-size: .85rem; padding: 8px 18px; border-bottom: 1px solid var(--line); }
 .call-tip[hidden] { display: none; }
+
+/* Visita confirmada */
+.msg.visita { padding: 0; overflow: hidden; max-width: 92%; width: 380px; white-space: normal; border: 2px solid #22c55e; }
+.visita-img { height: 130px; background: #e9e4df center/cover; position: relative; }
+.visita-ok { position: absolute; left: 10px; top: 10px; background: #15803d; color: #fff; font-weight: 800; font-size: .82rem; padding: 6px 12px; border-radius: 999px; }
+.visita-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; }
+.visita-cuando { color: var(--rojo); font-weight: 800; font-size: 1.02rem; text-transform: capitalize; }
+.visita-body small { color: var(--muted); }
+.visita-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.visita-btns .ver3d { flex: 1 1 100%; border-radius: 12px; padding: 11px; font-weight: 700; min-height: 46px; }
+.visita-btns .pill { flex: 1; text-align: center; }

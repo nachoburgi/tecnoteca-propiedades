@@ -124,7 +124,7 @@ async function enviar(texto, opts = {}) {
         else if (ev.t === 'tool_result') {
           if (ultimo) { ultimo.className = 'step ok'; ultimo.querySelector('.res').textContent = '✓ ' + ev.summary; }
           if (ev.name === 'buscar_propiedades' && ev.data?.resultados?.length) renderCards(ev.data.resultados);
-          if (ev.name === 'agendar_visita' && ev.data?.ok) visitaHecha = true;
+          if (ev.name === 'agendar_visita' && ev.data?.ok) { visitaHecha = true; nuevaVisita = ev.data; }
         } else if (ev.t === 'reply' || ev.t === 'error') respuesta = ev;
       }
     }
@@ -140,10 +140,40 @@ async function enviar(texto, opts = {}) {
   if (opts.audio && respuesta.t !== 'error') burbuja = burbujaAudio(respuesta.text, 'bot', Math.max(2, Math.round(respuesta.text.split(/\s+/).length / 2.6)), meta);
   else burbuja = addMsg(respuesta.text, respuesta.t === 'error' ? 'bot err' : 'bot', meta);
   brainStep('💬', 'Te respondió', respuesta.ms ? `en ${(respuesta.ms / 1000).toFixed(1)} segundos` : '', 'ok');
+  if (nuevaVisita) { tarjetaVisita(nuevaVisita); nuevaVisita = null; }
   $('#live').classList.remove('on');
   busy = false; $('#send').disabled = false;
   setQuick(visitaHecha ? ['💬 Pasar a WhatsApp', '🏠 Quiero ver otras opciones'] : hayTarjetas ? QUICK_RESULTADOS : QUICK_INICIO);
   if (llamada || (opts.audio && respuesta.t !== 'error')) hablar(respuesta.text, burbuja);
+}
+
+// Tarjeta "Visita confirmada": foto, día y hora, recorrido 3D, cómo llegar y agendar en el calendario
+let nuevaVisita = null;
+function tarjetaVisita(v) {
+  const f = v.ficha;
+  if (!f) return;
+  datosProp.set(f.id, { ...(datosProp.get(f.id) || {}), ...f });
+  const ini = new Date(v.fecha), fin = new Date(ini.getTime() + 45 * 60000);
+  const gcal = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const cal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Visita: ' + f.titulo)}&dates=${gcal(ini)}/${gcal(fin)}&details=${encodeURIComponent('Visita agendada con Lola · Tecnoteca Propiedades')}&location=${encodeURIComponent(f.direccion + ', Rosario, Santa Fe')}`;
+  const mapa = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(f.direccion + ', Rosario, Santa Fe')}`;
+  const d = document.createElement('div');
+  d.className = 'msg bot visita';
+  d.innerHTML = `
+    <div class="visita-img" style="background-image:url('${esc(f.foto)}')"><span class="visita-ok">✓ Visita confirmada</span></div>
+    <div class="visita-body">
+      <div class="visita-cuando">📅 ${esc(v.cuando)}</div>
+      <b>${esc(f.titulo)}</b>
+      <small>📍 ${esc(f.direccion)}, ${esc(f.zona)} · ${esc(f.precio)}</small>
+      <div class="visita-btns">
+        <button class="ver3d" data-id="${esc(f.id)}">🧊 Entrar en 3D</button>
+        <a class="pill" href="${mapa}" target="_blank" rel="noopener">📍 Cómo llegar</a>
+        <a class="pill" href="${cal}" target="_blank" rel="noopener">📅 A mi calendario</a>
+      </div>
+    </div>`;
+  d.querySelector('.ver3d').addEventListener('click', () => window.abrir3D?.(datosProp.get(f.id)));
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
 }
 
 window.enviarMensaje = enviar;
@@ -365,6 +395,7 @@ const PASOS = [
   { txt: 'Abajo se ve <b>lo que Lola hace por dentro</b>, en vivo: busca, anota la consulta y reserva visitas. Nada se pierde ni queda mal anotado.', run: async () => { spot('#brain'); } },
   { txt: '✨ <b>Imaginá tu vida acá</b>: la IA le cuenta al cliente cómo sería un día suyo en esa propiedad, con lo que él mismo contó. Emociona y vende.', run: async () => { const b = document.querySelector('.imagine'); if (b) { spot('.card'); b.click(); } } },
   { txt: 'El cliente quiere ir a verla. Lola le reserva la visita y lo anota como <b>cliente caliente</b> para que el asesor lo priorice.', run: async () => { spot('.chat'); await tipear('Me encanta la primera. ¿Puedo verla mañana a las 18? Soy Nacho, mi cel es 341 555 1234'); } },
+  { txt: 'Le llega la <b>visita confirmada</b> con la ficha. Antes de ir, puede <b>entrar en 3D</b>: la casa ya viene amueblada con lo que contó (el lugar del perro, su escritorio). Llega a la visita convencido.', run: async () => { spot('.msg.visita'); await esperar(900); const b = [...document.querySelectorAll('.msg.visita .ver3d')].pop(); if (b) b.click(); await esperar(2800); } },
   { txt: 'Con un toque, el cliente sigue la charla por <b>WhatsApp</b> con todo el resumen ya escrito: qué busca, qué le gustó y su visita.', run: async () => { spot('#btnWa'); } },
   { txt: 'Y el dueño ve todo en su <b>panel</b>: el cliente nuevo arriba de todo, las visitas, cuánto tarda Lola en responder y un <b>mapa</b> que le dice qué propiedades salir a conseguir. <br><br>Tocá Siguiente para abrirlo.', run: async () => { spot(null); } },
 ];

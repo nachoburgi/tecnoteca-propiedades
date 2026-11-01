@@ -33,7 +33,7 @@ function construir(p, contado) {
   const amb = Math.max(1, p.ambientes);
   const esCasa = p.tipo === 'casa' || p.tipo === 'ph';
   const W = esCasa ? 12 : 9 + amb, D = esCasa ? 9 : 7;
-  const H = 2.6, e = .15;
+  const H = 1.5, e = .15;
   const piso = 0xd9b98c, pared = 0xf4efe9;
   const items = [];
 
@@ -45,7 +45,7 @@ function construir(p, contado) {
   // Paredes perimetrales (sin techo: vista "casa de muñecas")
   caja(W, H, e, pared, 0, 0, -D / 2); caja(e, H, D, pared, -W / 2, 0, 0); caja(e, H, D, pared, W / 2, 0, 0);
   caja(W * .35, H, e, pared, -W * .325, 0, D / 2); caja(W * .35, H, e, pared, W * .325, 0, D / 2);
-  caja(W * .3, .5, e, 0xbfe3f5, 0, 1.2, D / 2, { op: .45 }); // ventanal
+  caja(W * .3, .4, e, 0xbfe3f5, 0, 1.1, D / 2, { op: .45 }); // ventanal
 
   // Distribución: living a la izquierda, dormitorios a la derecha
   const dorms = Math.max(0, amb - 1);
@@ -61,7 +61,7 @@ function construir(p, contado) {
       else {
         caja(Math.min(1.6, anchoD * .7), .5, 2, 0xffffff, x0, 0, -D / 2 + 1.2); // cama
         caja(Math.min(1.6, anchoD * .7), .25, .6, 0xc8102e, x0, .5, -D / 2 + .5); // almohadas
-        cartel(i === 0 ? 'Dormitorio' : 'Dormitorio ' + (i + 1), x0, 3.3, -D * .25, '#6b6560');
+        cartel(i === 0 ? 'Dormitorio' : 'Dormitorio ' + (i + 1), x0, 2.3, -D * .25, '#6b6560');
       }
     }
   }
@@ -71,7 +71,7 @@ function construir(p, contado) {
   caja(1.1, .4, .6, 0x8a6a4a, xl, 0, D / 2 - 2.6); // mesa ratona
   caja(1.6, .75, .9, 0x8a6a4a, xl, 0, -D / 2 + 1.3); // comedor
   caja(2, .9, .6, 0xffffff, -W / 2 + 1.1, 0, -D / 2 + .4); // cocina
-  cartel(amb === 1 ? 'Ambiente único' : 'Living · cocina', xl, 3.3, 0, '#6b6560');
+  cartel(amb === 1 ? 'Ambiente único' : 'Living · cocina', xl, 2.3, 0, '#6b6560');
 
   // Personalización según lo que contó el cliente
   if (tags.has('home office') || pidio.has('home office')) {
@@ -143,7 +143,7 @@ window.abrir3D = (p, contado) => {
   $('#t3dSub').textContent = `${p.zona} · ${p.ambientes} amb · ${p.m2} m² · ${p.precio}`;
   const personal = [];
   if (p.coincide_con?.includes('home office') || p.estilo_vida.includes('home office')) personal.push('💻 escritorio para trabajar');
-  if (p.mascotas && (p.coincide_con?.includes('mascotas'))) personal.push('🐶 lugar para tu perro');
+  if (p.mascotas && p.estilo_vida.includes('mascotas')) personal.push('🐶 lugar para tu perro');
   if (p.estilo_vida.includes('río')) personal.push('🌊 el río a pasos');
   if (p.cochera) personal.push('🚗 cochera');
   $('#t3dPersonal').textContent = personal.length ? 'Amueblada según lo que le contaste a Lola: ' + personal.join(' · ') : 'Recorrela: arrastrá para girar, ruedita para acercar.';
@@ -160,11 +160,11 @@ window.abrir3D = (p, contado) => {
   luz(); noche = false; aplicarNoche();
   construir(p, contado);
   controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.15; controls.minDistance = 5; controls.maxDistance = 40;
+  controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.15; controls.minDistance = 4; controls.maxDistance = 40;
   controls.autoRotate = false; controls.autoRotateSpeed = .8;
 
   // Motion: la cámara "vuela" desde el cielo hasta la propiedad
-  const desde = new THREE.Vector3(0, 45, 40), hasta = new THREE.Vector3(8.5, 8, 10), t0 = performance.now();
+  const desde = new THREE.Vector3(0, 45, 40), hasta = new THREE.Vector3(5.5, 10.5, 8.5), t0 = performance.now();
   camera.position.copy(desde); controls.target.set(0, 0, 0);
   vuelo = true;
   const ease = t => 1 - Math.pow(1 - t, 3);
