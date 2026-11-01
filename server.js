@@ -385,6 +385,7 @@ const app = express();
 app.use(express.json({ limit: '20kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/panel', (req, res) => res.sendFile(path.join(__dirname, 'public', 'panel.html')));
+app.get('/whatsapp', (req, res) => res.sendFile(path.join(__dirname, 'public', 'wa.html')));
 app.get('/asesor', (req, res) => res.sendFile(path.join(__dirname, 'public', 'asesor.html')));
 
 const validSid = s => typeof s === 'string' && /^[a-zA-Z0-9-]{8,64}$/.test(s);
@@ -420,6 +421,35 @@ app.post('/api/chat', async (req, res) => {
     ses.busy = false;
     res.end();
   }
+});
+
+// WhatsApp: el equipo comercial retoma la charla de Lola con todo el historial, con tono de asesor
+function systemWA() {
+  const base = systemPrompt();
+  return `Ahora la charla sigue por WhatsApp con el equipo comercial de Tecnoteca Propiedades (Rosario). Ya tenés todo lo que el cliente habló con Lola en la web: no le hagas repetir nada.
+Escribí como un asesor comercial de verdad por WhatsApp: rioplatense (vos), cercano, seguro y resolutivo. Mensajes cortos de 1 a 3 líneas, sin listas ni markdown, como mucho un emoji ocasional (🙌 👍 🏠). Podés partir la respuesta en 2 mensajes separados por una línea en blanco, como hace una persona.
+En el primer mensaje saludá por el nombre si lo sabés y retomá en una frase lo que busca y su visita, para que sienta que lo conocés. Cerrá siempre con un próximo paso concreto (confirmar la visita, mandarle la ubicación, sumar otra opción, pasarle requisitos).
+Si te pregunta si sos una persona o un bot, sé honesto con naturalidad: sos el asistente del equipo comercial y un asesor puede tomar la charla cuando quiera.
+` + base.slice(base.indexOf('Reglas:'));
+}
+const WA_CFG = { ...LOLA, system: () => systemWA(), maxTokens: 500 };
+app.post('/api/wa', async (req, res) => {
+  const { sessionId, mensaje } = req.body || {};
+  if (!validSid(sessionId) || typeof mensaje !== 'string' || !mensaje.trim() || mensaje.length > 1000) return res.status(400).json({ error: 'Mensaje inválido' });
+  const ses = getSesion(sessionId);
+  if (ses.busy) return res.status(429).json({ error: 'ocupado' });
+  ses.busy = true;
+  ses.userTexts.push(mensaje.trim());
+  const t0 = Date.now();
+  try {
+    const texto = await correrAgente(ses, mensaje.trim(), () => {}, WA_CFG);
+    stats.tiempos.push(Date.now() - t0);
+    res.json({ texto: texto || '¿Me lo repetís?' });
+  } catch (e) {
+    console.error('[wa]', e.message);
+    ses.history.length = ses.histLen || 0;
+    res.json({ texto: 'Perdón, se me cortó un segundo. ¿Me lo repetís?' });
+  } finally { ses.busy = false; }
 });
 
 // Copiloto de asesores: mismo streaming, otras herramientas y otra personalidad

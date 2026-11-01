@@ -390,11 +390,8 @@ $('#btnCall').addEventListener('click', () => {
 $('#callNow').addEventListener('click', () => { hablaId++; callarLola(); silencios = 0; escuchar(); });
 
 // --- Seguir por WhatsApp (link oficial wa.me con el resumen de la charla) ---
-async function abrirWhatsApp() {
-  let texto = 'Hola Tecnoteca Propiedades! Vengo de la web y quiero hacer una consulta 🏠', numero = '';
-  try { const j = await (await fetch('/api/resumen/' + sid)).json(); if (j.texto) texto = j.texto; numero = j.numero || ''; } catch {}
-  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
-}
+// Sigue por WhatsApp: el equipo comercial retoma con todo lo que el cliente ya contó
+function abrirWhatsApp() { window.open('/whatsapp?sid=' + encodeURIComponent(sid), '_blank'); }
 $('#btnWa').addEventListener('click', abrirWhatsApp);
 $('#quick').addEventListener('click', e => { if (e.target.dataset.wa) { e.stopImmediatePropagation(); abrirWhatsApp(); } }, true);
 
@@ -409,6 +406,12 @@ async function tipear(texto) {
   input.value = '';
   await enviar(texto);
 }
+async function tipear3d(texto) {
+  const input = $('#t3dPreg');
+  input.value = '';
+  for (const ch of texto) { input.value += ch; await esperar(32); }
+  await esperar(350);
+}
 function spot(sel) {
   document.querySelectorAll('.spot').forEach(e => e.classList.remove('spot'));
   const el = sel && document.querySelector(sel);
@@ -421,8 +424,10 @@ const PASOS = [
   { txt: '✨ <b>Imaginá tu vida acá</b>: la IA le cuenta al cliente cómo sería un día suyo en esa propiedad, con lo que él mismo contó. Emociona y vende.', run: async () => { const b = document.querySelector('.imagine'); if (b) { spot('.card'); b.click(); } } },
   { txt: 'El cliente quiere ir a verla. Lola le reserva la visita y lo anota como <b>cliente caliente</b> para que el asesor lo priorice.', run: async () => { spot('.chat'); await tipear('Me encanta la primera. ¿Puedo verla mañana a las 18? Soy Nacho, mi cel es 341 555 1234'); } },
   { txt: 'Le llega la <b>visita confirmada</b> con la ficha. Antes de ir, puede <b>entrar en 3D</b>: la casa ya viene amueblada con lo que contó (el lugar del perro, su escritorio). Llega a la visita convencido.', run: async () => { spot('.msg.visita'); await esperar(900); const b = [...document.querySelectorAll('.msg.visita .ver3d')].pop(); if (b) b.click(); await esperar(2800); } },
-  { txt: 'Con un toque, el cliente sigue la charla por <b>WhatsApp</b> con todo el resumen ya escrito: qué busca, qué le gustó y su visita.', run: async () => { spot('#btnWa'); } },
-  { txt: 'Y el dueño ve todo en su <b>panel</b>: el cliente nuevo arriba de todo, las visitas, cuánto tarda Lola en responder y un <b>mapa</b> que le dice qué propiedades salir a conseguir. <br><br>Tocá Siguiente para abrirlo.', run: async () => { spot(null); } },
+  { txt: '🚶 Y no es una maqueta: el cliente <b>entra a cada ambiente</b>, a la altura de sus ojos. Parado en el dormitorio le pregunta a Lola lo que le preocupa, y ella le contesta con la ficha real.', run: async () => { const c = [...document.querySelectorAll('#t3dRooms .chip')].find(x => /Dormitorio/.test(x.textContent)); if (!c) return; c.click(); await esperar(1900); await tipear3d('¿Entra una cama de dos plazas?'); $('#t3dAsk').click(); await esperar(300); while ($('#t3dAsk').disabled) await esperar(200); } },
+  { txt: '📌 Y si algo le queda en duda, lo <b>anota ahí mismo</b>: "ver si hay humedad en la pared". Ese recordatorio se guarda <b>en su Google Calendar</b> junto con la visita, y también le llega al asesor. El día de la visita, los dos saben qué revisar.', run: async () => { await tipear3d('ver si hay humedad en la pared'); $('#t3dNota').click(); await esperar(900); } },
+  { txt: 'Con un toque, el cliente sigue la charla por <b>WhatsApp</b> con todo el resumen ya escrito: qué busca, qué le gustó y su visita.', run: async () => { if (!$('#tour3d').hidden) $('#t3dCerrar').click(); await esperar(300); spot('#btnWa'); } },
+  { txt: 'Y el dueño ve todo en su <b>panel</b>: el cliente nuevo arriba de todo, las visitas con los <b>📌 recordatorios del cliente</b>, cuánto tarda Lola en responder y un <b>mapa</b> que le dice qué propiedades salir a conseguir. <br><br>Tocá Siguiente para abrirlo.', run: async () => { spot(null); } },
 ];
 let paso = -1;
 async function irPaso(n) {
