@@ -3,45 +3,58 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Litoral Propiedades · Lola</title>
-  <meta name="description" content="Lola, la agente de IA de Litoral Propiedades: atiende por chat y voz, califica leads y agenda visitas.">
+  <title>Litoral Propiedades · Rosario</title>
+  <meta name="description" content="Litoral Propiedades: contale a Lola qué necesitás y te muestra las propiedades que mejor te quedan, por chat o por voz, a toda hora.">
+  <meta name="theme-color" content="#c8102e">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <header class="top">
-    <div class="brand"><div class="logo">LP</div><div>Litoral Propiedades<small>Rosario · Atención con IA 24/7</small></div></div>
-    <nav class="nav"><a class="pill on" href="/">Cliente</a><a class="pill" href="/panel" target="_blank">Panel del dueño</a></nav>
+    <a class="brand" href="/">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></div>
+      <div><div class="brand-name">Litoral Propiedades</div><small>Rosario · Santa Fe</small></div>
+    </a>
+    <nav class="nav">
+      <button class="call" id="btnCall" title="Hablar con Lola por voz">📞 <span>Hablar con Lola</span></button>
+      <a class="pill hide-m" href="/panel" target="_blank">Panel del dueño</a>
+    </nav>
   </header>
+
+  <section class="hero">
+    <div class="hero-in">
+      <div>
+        <h1>Encontrá tu lugar en Rosario</h1>
+        <p>Contale a Lola qué necesitás y cómo vivís. Te responde al instante, a cualquier hora.</p>
+      </div>
+      <div class="hero-badges"><span>⏱ Respuesta en segundos</span><span>🌙 Atención 24 hs</span><span>📅 Agendá tu visita</span></div>
+    </div>
+  </section>
 
   <main class="layout">
     <section class="panel chat">
       <div class="panel-head">
-        <div class="lola"><div class="avatar">L</div><div><b>Lola</b><span id="estado">En línea · responde en segundos</span></div></div>
-        <button class="call" id="btnCall" title="Hablar con Lola por voz">📞 <span>Llamar</span></button>
+        <div class="lola"><div class="avatar">L</div><div><b>Lola</b><span id="estado">Asesora de Litoral Propiedades · en línea</span></div></div>
       </div>
       <div class="callbar" id="callbar"><div class="wave idle" id="wave"><i></i><i></i><i></i><i></i></div><span id="callText">En llamada…</span></div>
-      <div class="msgs" id="msgs"></div>
-      <div class="sugs" id="sugs">
-        <button class="sug">Busco alquilar cerca del río, tengo un perro y trabajo desde casa</button>
-        <button class="sug">Quiero comprar una casa con patio en Fisherton para mi familia</button>
-        <button class="sug">¿Tienen algo económico para estudiante?</button>
-      </div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="quick" id="quick"></div>
       <form class="composer" id="form" autocomplete="off">
-        <input id="input" maxlength="1000" placeholder="Escribile a Lola… (simula WhatsApp)">
+        <button type="button" class="btn btn-mic" id="btnMic" title="Hablar en vez de escribir" aria-label="Hablar con Lola">🎤</button>
+        <input id="input" maxlength="1000" placeholder="Escribí tu consulta acá…" aria-label="Tu mensaje">
         <button class="btn" id="send">Enviar</button>
       </form>
     </section>
 
     <aside class="side">
-      <section class="panel brain">
-        <div class="panel-head"><h2><span class="brain-live" id="live"></span>Cerebro de Lola · en vivo</h2></div>
-        <div class="brain-body" id="brain"><div class="brain-empty">Acá vas a ver lo que hace el agente en tiempo real: qué busca, qué decide y qué registra.</div></div>
+      <section class="panel">
+        <div class="panel-head"><h2>Propiedades para vos</h2><span class="sub" id="cardsSub">Elegidas según lo que le contás a Lola</span></div>
+        <div class="cards" id="cards"><div class="brain-empty">Cuando le cuentes a Lola qué buscás, acá vas a ver las propiedades que mejor te quedan, con fotos y el porqué.</div></div>
       </section>
-      <section class="panel cards-wrap">
-        <div class="panel-head"><h2>Propiedades sugeridas</h2></div>
-        <div class="cards" id="cards"><div class="brain-empty">Todavía no hay sugerencias.</div></div>
+      <section class="panel">
+        <div class="panel-head"><h2><span class="brain-live" id="live"></span>Lo que Lola está haciendo por vos</h2></div>
+        <div class="brain-body" id="brain"><div class="brain-empty">Acá vas a ver, paso a paso, cómo Lola busca en el catálogo, anota tu consulta y te reserva la visita.</div></div>
       </section>
     </aside>
   </main>

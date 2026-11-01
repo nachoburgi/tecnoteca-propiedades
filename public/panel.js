@@ -13,7 +13,7 @@ if (window.L) {
   $('#mapa').innerHTML = '<div class="ai-box" style="color:var(--muted)">No se pudo cargar el mapa (sin conexión al CDN).</div>';
 }
 
-const colorBrecha = b => b > 0.55 ? '#ff2e93' : b > 0.25 ? '#fbbf24' : '#34d399';
+const colorBrecha = b => b > 0.55 ? '#c8102e' : b > 0.25 ? '#e0a100' : '#15803d';
 const hace = iso => {
   const m = Math.round((Date.now() - new Date(iso)) / 60000);
   return m < 1 ? 'recién' : m < 60 ? `hace ${m} min` : `hace ${Math.floor(m / 60)} h ${m % 60} min`;
@@ -49,7 +49,7 @@ function render(d) {
     d.mapa.forEach(z => {
       const c = L.circleMarker([z.lat, z.lng], { radius: 10 + z.consultas * 1.3, color: colorBrecha(z.brecha), fillColor: colorBrecha(z.brecha), fillOpacity: .35, weight: 2 });
       c.bindTooltip(`<b>${esc(z.zona)}</b><br>${z.consultas} consultas (${z.vivo} en vivo)<br>Oferta: ${z.oferta.alquiler} alquiler · ${z.oferta.venta} venta${z.insatisfecha ? `<br>${z.insatisfecha} búsquedas sin resultado` : ''}`, { direction: 'top' });
-      L.marker([z.lat, z.lng], { icon: L.divIcon({ className: '', html: `<div style="color:#fff;font:700 11px Inter,sans-serif;text-shadow:0 1px 3px #000;transform:translate(-50%,-50%);white-space:nowrap">${esc(z.zona)}</div>` }), interactive: false }).addTo(capa);
+      L.marker([z.lat, z.lng], { icon: L.divIcon({ className: '', html: `<div style="color:#1f1d1b;font:700 12px DM Sans,sans-serif;text-shadow:0 0 3px #fff,0 0 3px #fff;transform:translate(-50%,-50%);white-space:nowrap">${esc(z.zona)}</div>` }), interactive: false }).addTo(capa);
       c.addTo(capa);
     });
   }

@@ -151,7 +151,7 @@ function buscarPropiedades(a, ses) {
     resultados: res.map(r => ({
       id: r.p.id, titulo: r.p.titulo, zona: r.p.zona, operacion: r.p.operacion, tipo: r.p.tipo, ambientes: r.p.ambientes,
       m2: r.p.m2, precio: fmtPrecio(r.p), mascotas: r.p.mascotas, cochera: r.p.cochera,
-      estilo_vida: r.p.estilo_vida, coincide_con: r.coinciden, descripcion: r.p.descripcion,
+      estilo_vida: r.p.estilo_vida, coincide_con: r.coinciden, descripcion: r.p.descripcion, foto: r.p.foto, direccion: r.p.direccion,
     })),
   };
 }
@@ -210,15 +210,15 @@ function describirTool(nombre, a) {
     if (a.mascotas) partes.push('mascotas: sí');
     if (a.cochera) partes.push('cochera: sí');
     if (a.estilo_vida && a.estilo_vida.length) partes.push('estilo: ' + a.estilo_vida.join(', '));
-    return { label: 'Buscando en el catálogo', detail: partes.join(' · ') || 'sin filtros' };
+    return { label: 'Buscando propiedades en el catálogo', detail: partes.join(' · ') || 'todas las opciones' };
   }
-  if (nombre === 'crear_lead') return { label: 'Registrando lead', detail: `${a.nombre || 'Cliente web'} · ${a.temperatura || ''}` };
-  if (nombre === 'agendar_visita') return { label: 'Agendando visita', detail: `${a.propiedad_id} · ${a.fecha_hora}` };
+  if (nombre === 'crear_lead') return { label: 'Anotando tu consulta para un asesor', detail: `${a.nombre || 'Cliente web'} · interés ${a.temperatura || ''}` };
+  if (nombre === 'agendar_visita') return { label: 'Reservando tu visita', detail: `${a.propiedad_id} · ${fechaLinda(new Date(a.fecha_hora))}` };
   return { label: nombre, detail: '' };
 }
 function resumirResultado(nombre, r) {
-  if (nombre === 'buscar_propiedades') return r.alternativas ? `0 en la zona → ${r.total} alternativas` : `${r.total} resultado${r.total === 1 ? '' : 's'}`;
-  if (nombre === 'crear_lead') return r.actualizado ? `Lead actualizado (${r.temperatura})` : `Lead ${r.id} creado (${r.temperatura})`;
+  if (nombre === 'buscar_propiedades') return r.alternativas ? `No hay en esa zona → encontró ${r.total} parecidas cerca` : `Encontró ${r.total} que te quedan bien`;
+  if (nombre === 'crear_lead') return r.actualizado ? `Consulta actualizada · interés ${r.temperatura}` : `Consulta anotada · interés ${r.temperatura}`;
   if (nombre === 'agendar_visita') return r.ok ? `Visita confirmada: ${r.cuando}` : r.error;
   return '';
 }

@@ -1,4 +1,4 @@
-// Litoral Propiedades · cliente (chat + voz + cerebro visible)
+// Litoral Propiedades · cliente (chat + voz + "lo que Lola está haciendo")
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sid = (() => {
@@ -7,11 +7,17 @@ const sid = (() => {
 })();
 
 const msgs = $('#msgs'), brain = $('#brain'), cards = $('#cards');
-let busy = false;
+let busy = false, hayTarjetas = false, visitaHecha = false;
 const tarjetas = new Map();
-
 const ICON = { buscar_propiedades: '🔎', crear_lead: '📝', agendar_visita: '📅' };
-const GRAD = { Centro: '#ff2e93,#8b5cf6', Pichincha: '#f97316,#ff2e93', Echesortu: '#22d3ee,#6366f1', Fisherton: '#34d399,#0ea5e9', Alberdi: '#0ea5e9,#22d3ee', Abasto: '#a855f7,#ec4899' };
+
+// Respuestas rápidas: para que cualquiera pueda usarlo sin escribir
+const QUICK_INICIO = ['🏠 Quiero alquilar', '🔑 Quiero comprar', '🌊 Algo cerca del río', '🐶 Tengo mascota', '🎓 Algo económico para estudiar'];
+const QUICK_RESULTADOS = ['📅 Quiero visitar la primera', '💸 ¿Algo más barato?', '📍 Mostrame otra zona', '👤 Prefiero que me llame un asesor'];
+function setQuick(lista) {
+  $('#quick').innerHTML = lista.map(t => `<button type="button" class="chip">${esc(t)}</button>`).join('');
+}
+$('#quick').addEventListener('click', e => { if (e.target.classList.contains('chip')) enviar(e.target.textContent.replace(/^\S+\s/, '')); });
 
 function addMsg(texto, quien, meta) {
   const d = document.createElement('div');
@@ -34,28 +40,36 @@ function brainStep(icon, label, detail, cls = 'run') {
 
 function renderCards(resultados) {
   if (cards.querySelector('.brain-empty')) cards.innerHTML = '';
+  hayTarjetas = true;
   resultados.slice().reverse().forEach(p => {
-    if (tarjetas.has(p.id)) { cards.prepend(tarjetas.get(p.id)); return; }
-    const match = new Set(p.coincide_con || []);
+    tarjetas.get(p.id)?.remove();
+    const match = (p.coincide_con || []).filter(Boolean);
     const c = document.createElement('article');
     c.className = 'card';
     c.innerHTML = `
-      <div class="card-img" style="background:linear-gradient(135deg,${GRAD[p.zona] || '#ff2e93,#22d3ee'})">
-        <span class="zona">📍 ${esc(p.zona)} · ${esc(p.id)}</span><span class="precio">${esc(p.precio)}</span>
+      <div class="card-img" style="background-image:url('${esc(p.foto)}')">
+        <span class="op">${p.operacion === 'venta' ? 'En venta' : 'En alquiler'}</span>
+        <span class="zona">📍 ${esc(p.zona)}</span>
       </div>
       <div class="card-body">
+        <div class="precio">${esc(p.precio)}</div>
         <h3>${esc(p.titulo)}</h3>
-        <p>${esc(p.ambientes)} amb · ${esc(p.m2)} m² · ${p.mascotas ? 'acepta mascotas' : 'sin mascotas'}${p.cochera ? ' · cochera' : ''}<br>${esc(p.descripcion)}</p>
-        <div class="tags">${p.estilo_vida.map(t => `<span class="tag ${match.has(t) ? 'match' : ''}">${esc(t)}</span>`).join('')}</div>
-        <div class="card-actions"><button class="imagine" data-id="${esc(p.id)}">✨ Imaginá tu vida acá</button></div>
+        <div class="datos"><span>🛏 ${esc(p.ambientes)} amb.</span><span>📐 ${esc(p.m2)} m²</span>${p.mascotas ? '<span>🐾 Mascotas</span>' : ''}${p.cochera ? '<span>🚗 Cochera</span>' : ''}</div>
+        <p>${esc(p.descripcion)}</p>
+        ${match.length ? `<div class="porque"><b>Te queda bien porque:</b> ${esc(match.join(' · '))}</div>` : ''}
+        <div class="card-actions">
+          <button class="visitar" data-id="${esc(p.id)}" data-titulo="${esc(p.titulo)}">📅 Quiero visitarla</button>
+          <button class="imagine" data-id="${esc(p.id)}">✨ Imaginá tu vida acá</button>
+        </div>
       </div>`;
     tarjetas.set(p.id, c);
     cards.prepend(c);
   });
-  cards.scrollTop = 0;
 }
 
 cards.addEventListener('click', async e => {
+  const v = e.target.closest('.visitar');
+  if (v) return enviar(`Quiero visitar "${v.dataset.titulo}" (${v.dataset.id}). ¿Qué días hay?`);
   const b = e.target.closest('.imagine');
   if (!b) return;
   const body = b.closest('.card-body');
@@ -77,13 +91,13 @@ async function enviar(texto) {
   texto = texto.trim();
   if (!texto || busy) return;
   busy = true; $('#send').disabled = true;
-  $('#sugs').style.display = 'none';
+  setQuick([]);
   addMsg(texto, 'user');
   const typing = addMsg('', 'bot');
   typing.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
   $('#live').classList.add('on');
   if (brain.children.length && !brain.querySelector('.brain-empty')) brain.insertAdjacentHTML('beforeend', '<div class="turn-sep"></div>');
-  const pensando = brainStep('🧠', 'Lola está pensando', `"${texto.slice(0, 60)}${texto.length > 60 ? '…' : ''}"`);
+  const pensando = brainStep('💭', 'Lola está leyendo tu mensaje', `"${texto.slice(0, 70)}${texto.length > 70 ? '…' : ''}"`);
   let ultimo = null, respuesta = null;
   try {
     const r = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: sid, mensaje: texto }) });
@@ -103,8 +117,9 @@ async function enviar(texto) {
         pensando.className = 'step ok';
         if (ev.t === 'tool') { ultimo = brainStep(ICON[ev.name] || '⚙️', ev.label, ev.detail); }
         else if (ev.t === 'tool_result') {
-          if (ultimo) { ultimo.className = 'step ok'; ultimo.querySelector('.res').textContent = '→ ' + ev.summary; }
+          if (ultimo) { ultimo.className = 'step ok'; ultimo.querySelector('.res').textContent = '✓ ' + ev.summary; }
           if (ev.name === 'buscar_propiedades' && ev.data?.resultados?.length) renderCards(ev.data.resultados);
+          if (ev.name === 'agendar_visita' && ev.data?.ok) visitaHecha = true;
         } else if (ev.t === 'reply' || ev.t === 'error') respuesta = ev;
       }
     }
@@ -114,31 +129,48 @@ async function enviar(texto) {
   typing.remove();
   pensando.className = 'step ok';
   respuesta = respuesta || { t: 'error', text: 'Uy, no pude conectarme. ¿Probás de nuevo?' };
-  const meta = respuesta.ms ? `Lola · ${(respuesta.ms / 1000).toFixed(1)} s` : 'Lola';
+  const meta = respuesta.ms ? `Lola · respondió en ${(respuesta.ms / 1000).toFixed(1)} s` : 'Lola';
   addMsg(respuesta.text, respuesta.t === 'error' ? 'bot err' : 'bot', meta);
-  brainStep('💬', 'Respuesta enviada', respuesta.ms ? `en ${(respuesta.ms / 1000).toFixed(1)} s` : '', 'ok');
+  brainStep('💬', 'Te respondió', respuesta.ms ? `en ${(respuesta.ms / 1000).toFixed(1)} segundos` : '', 'ok');
   $('#live').classList.remove('on');
   busy = false; $('#send').disabled = false;
+  setQuick(visitaHecha ? ['🙌 ¡Gracias!', '🏠 Quiero ver otras opciones'] : hayTarjetas ? QUICK_RESULTADOS : QUICK_INICIO);
   if (llamada) hablar(respuesta.text);
-  else $('#input').focus();
 }
 
 $('#form').addEventListener('submit', e => { e.preventDefault(); const v = $('#input').value; $('#input').value = ''; enviar(v); });
-$('#sugs').addEventListener('click', e => { if (e.target.classList.contains('sug')) enviar(e.target.textContent); });
 
-addMsg('¡Hola! Soy Lola, de Litoral Propiedades 👋 Contame qué estás buscando (y cómo es tu vida: si tenés mascotas, si trabajás desde casa…) y te muestro lo que mejor te queda.', 'bot', 'Lola');
+addMsg('¡Hola! Soy Lola, de Litoral Propiedades 👋\nContame qué estás buscando y cómo es tu día a día (si tenés mascota, si trabajás desde casa, si tenés chicos…) y te muestro lo que mejor te queda.\nPodés escribirme, tocar un botón de abajo o tocar 🎤 y hablarme.', 'bot', 'Lola');
+setQuick(QUICK_INICIO);
 
 // --- Voz: Web Speech API (es-AR) ---
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let llamada = false, rec = null, voz = null;
 function elegirVoz() {
   const vs = speechSynthesis.getVoices();
-  voz = vs.find(v => v.lang === 'es-AR') || vs.find(v => v.lang === 'es-US') || vs.find(v => /^es/.test(v.lang) && /female|mujer|helena|sabina|paulina|monica/i.test(v.name)) || vs.find(v => /^es/.test(v.lang)) || null;
+  voz = vs.find(v => v.lang === 'es-AR') || vs.find(v => v.lang === 'es-US') || vs.find(v => /^es/.test(v.lang) && /female|mujer|helena|sabina|paulina|monica|google/i.test(v.name)) || vs.find(v => /^es/.test(v.lang)) || null;
 }
 if ('speechSynthesis' in window) { elegirVoz(); speechSynthesis.onvoiceschanged = elegirVoz; }
+const sinVoz = () => alert('Tu navegador no permite hablar 😕 Probá desde Google Chrome. Mientras tanto, podés escribirle a Lola o tocar los botones.');
 
 function setCall(txt, activo) { $('#callText').textContent = txt; $('#wave').classList.toggle('idle', !activo); }
 
+// Micrófono del chat: dictar un mensaje (sin llamada)
+$('#btnMic').addEventListener('click', () => {
+  if (!SR) return sinVoz();
+  if (busy || llamada) return;
+  const r = new SR();
+  r.lang = 'es-AR'; r.interimResults = true;
+  const input = $('#input'), mic = $('#btnMic');
+  let final = '';
+  mic.textContent = '⏺'; input.placeholder = 'Te escucho… hablá tranquilo';
+  r.onresult = e => { let t = ''; for (const x of e.results) { t += x[0].transcript; if (x.isFinal) final = t; } input.value = t; };
+  r.onend = () => { mic.textContent = '🎤'; input.placeholder = 'Escribí tu consulta acá…'; if (final.trim()) { input.value = ''; enviar(final); } };
+  r.onerror = e => { if (e.error === 'not-allowed') alert('Necesito permiso para usar el micrófono.'); };
+  try { r.start(); } catch {}
+});
+
+// Llamada: Lola escucha, responde hablando y vuelve a escuchar
 function escuchar() {
   if (!llamada || busy) return;
   rec = new SR();
@@ -152,7 +184,7 @@ function escuchar() {
   rec.onerror = e => { if (e.error === 'not-allowed') { cortar(); alert('Necesito permiso para usar el micrófono.'); } };
   rec.onend = () => {
     if (!llamada) return;
-    if (final.trim()) { setCall('Lola está pensando…', false); enviar(final); }
+    if (final.trim()) { setCall('Lola está buscando…', false); enviar(final); }
     else setTimeout(escuchar, 250);
   };
   setCall('Te escucho… hablá tranquilo', true);
@@ -166,7 +198,7 @@ function hablar(texto) {
   u.lang = voz?.lang || 'es-AR'; if (voz) u.voice = voz; u.rate = 1.05;
   u.onend = () => { if (llamada) escuchar(); };
   u.onerror = () => { if (llamada) escuchar(); };
-  setCall('🔊 Lola está hablando…', true);
+  setCall('🔊 Lola te está hablando…', true);
   speechSynthesis.speak(u);
 }
 
@@ -174,18 +206,16 @@ function cortar() {
   llamada = false;
   try { rec && rec.abort(); } catch {}
   speechSynthesis?.cancel();
-  $('#btnCall').classList.remove('on'); $('#btnCall span').textContent = 'Llamar';
+  $('#btnCall').classList.remove('on'); $('#btnCall span').textContent = 'Hablar con Lola';
   $('#callbar').classList.remove('on');
 }
 
 $('#btnCall').addEventListener('click', () => {
   if (llamada) return cortar();
-  if (!SR || !('speechSynthesis' in window)) {
-    alert('Tu navegador no soporta voz 😕 Probá desde Google Chrome (compu o Android). Mientras, podés escribirle a Lola.');
-    return;
-  }
+  if (!SR || !('speechSynthesis' in window)) return sinVoz();
   llamada = true;
-  $('#btnCall').classList.add('on'); $('#btnCall span').textContent = 'Cortar';
+  $('#btnCall').classList.add('on'); $('#btnCall span').textContent = 'Cortar llamada';
   $('#callbar').classList.add('on');
-  hablar('Hola, soy Lola de Litoral Propiedades. ¿Qué estás buscando?');
+  document.querySelector('.chat').scrollIntoView({ behavior: 'smooth' });
+  hablar('Hola, soy Lola de Litoral Propiedades. Contame, ¿qué estás buscando?');
 });
