@@ -28,7 +28,7 @@
         <h1>Encontrá tu lugar en Rosario</h1>
         <p>Contale a Lola qué necesitás y cómo vivís. Te responde al instante, a cualquier hora.</p>
       </div>
-      <div class="hero-badges"><span>⏱ Respuesta en segundos</span><span>🌙 Atención 24 hs</span><span>📅 Agendá tu visita</span></div>
+      <div class="hero-badges"><button class="demo-btn" id="btnDemo">▶ Ver demo guiada</button><span>⏱ Respuesta en segundos</span><span>🌙 Atención 24 hs</span><span>📅 Agendá tu visita</span></div>
     </div>
   </section>
 
@@ -36,13 +36,15 @@
     <section class="panel chat">
       <div class="panel-head">
         <div class="lola"><div class="avatar">L</div><div><b>Lola</b><span id="estado">Asesora de Litoral Propiedades · en línea</span></div></div>
+        <button class="wa" id="btnWa" title="Seguir la charla por WhatsApp">💬 <span>Seguir por WhatsApp</span></button>
       </div>
       <div class="callbar" id="callbar"><div class="wave idle" id="wave"><i></i><i></i><i></i><i></i></div><span id="callText">En llamada…</span></div>
       <div class="msgs" id="msgs" aria-live="polite"></div>
       <div class="quick" id="quick"></div>
+      <div class="recbar" id="recbar" hidden><button type="button" class="rec-x" id="recCancel" aria-label="Cancelar audio">✕</button><span class="rec-dot"></span><span class="rec-time" id="recTime">0:00</span><span class="rec-txt" id="recTxt">Te escucho…</span><button type="button" class="rec-send" id="recSend" aria-label="Enviar audio">➤</button></div>
       <form class="composer" id="form" autocomplete="off">
-        <button type="button" class="btn btn-mic" id="btnMic" title="Hablar en vez de escribir" aria-label="Hablar con Lola">🎤</button>
-        <input id="input" maxlength="1000" placeholder="Escribí tu consulta acá…" aria-label="Tu mensaje">
+        <button type="button" class="btn btn-mic" id="btnMic" title="Mandar un audio" aria-label="Mandar un audio">🎤</button>
+        <input id="input" maxlength="1000" placeholder="Escribí o tocá 🎤 para mandar un audio…" aria-label="Tu mensaje">
         <button class="btn" id="send">Enviar</button>
       </form>
     </section>
@@ -58,6 +60,7 @@
       </section>
     </aside>
   </main>
+  <div class="tour" id="tour" hidden><div class="tour-paso" id="tourPaso"></div><div class="tour-txt" id="tourTxt"></div><div class="tour-btns"><button class="tour-salir" id="tourSalir">Salir</button><button class="btn" id="tourSig">Siguiente ▶</button></div></div>
   <script src="/app.js"></script>
 </body>
 </html>

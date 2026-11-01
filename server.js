@@ -22,6 +22,7 @@ const AI = {
 };
 if (!AI.key && AI.provider !== 'mock') AI.provider = 'mock';
 const PORT = Number(process.env.PORT || 3000);
+const WHATSAPP = (process.env.WHATSAPP_NUMERO || '').replace(/\D/g, '');
 
 // --- Datos ---
 const PROPIEDADES = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'propiedades.json'), 'utf8'));
@@ -112,7 +113,7 @@ const TOOLS = [
 
 const fmtPrecio = p => p.moneda === 'USD' ? `USD ${p.precio.toLocaleString('es-AR')}` : `$${p.precio.toLocaleString('es-AR')}/mes`;
 
-function buscarPropiedades(a, ses) {
+function buscarPropiedades(a, ses, registrarDemanda = true) {
   const estilos = (Array.isArray(a.estilo_vida) ? a.estilo_vida : []).map(norm).filter(e => ESTILOS.map(norm).includes(e));
   const zona = a.zona ? zonaCanon(a.zona) : null;
   const filtrar = (conZona, precioExtra = 1) => PROPIEDADES.filter(p =>
@@ -132,7 +133,7 @@ function buscarPropiedades(a, ses) {
   let nota = '';
   let alternativas = false;
   if (zona && res.length === 0) {
-    demanda[zona].insatisfecha++;
+    if (registrarDemanda) demanda[zona].insatisfecha++;
     res = puntuar(filtrar(false));
     alternativas = true;
     nota = `No hay propiedades en ${zona} con esos criterios. Estas son alternativas de otras zonas: avisale al cliente.`;
@@ -144,7 +145,7 @@ function buscarPropiedades(a, ses) {
   res = res.slice(0, 3);
   // Demanda en vivo: zona pedida, o la de la mejor coincidencia
   const zonaDemanda = zona || (res[0] && res[0].p.zona);
-  if (zonaDemanda) demanda[zonaDemanda].vivo++;
+  if (zonaDemanda && registrarDemanda) demanda[zonaDemanda].vivo++;
   res.forEach(r => ses.vistos.add(r.p.id));
   return {
     total: res.length, alternativas, nota,
@@ -225,8 +226,9 @@ function resumirResultado(nombre, r) {
 
 function systemPrompt() {
   const ahora = new Date();
-  return `Sos Lola, la asistente virtual de Litoral Propiedades, inmobiliaria de Rosario, Santa Fe. Atendés por chat y por voz, 24/7.
-Estilo: español rioplatense (vos), cálida, concreta. MÁXIMO 3 oraciones cortas por respuesta, porque el cliente puede estar escuchándote por voz: sin listas, sin markdown, sin emojis.
+  return `Sos Lola, la secretaria de Litoral Propiedades, una inmobiliaria familiar de Rosario, Santa Fe. Atendés por chat, por audio y por teléfono a cualquier hora.
+Personalidad: una secretaria rosarina con años en la inmobiliaria, muy amable, paciente y cercana; se nota que le importa la persona. Hablás como una persona real, no como un sistema: nada de "como asistente virtual", "procesando", "según mi base de datos" ni frases de manual. Usá expresiones naturales ("¡Qué lindo!", "Quedate tranquilo/a", "Te entiendo", "Mirá, tengo justo algo que te puede gustar"). Si sabés el nombre de la persona, usalo. Si cuenta algo personal (se muda por trabajo, se separa, viene un bebé), reconocelo con empatía en media frase antes de seguir. Tratá con el mismo respeto y paciencia a un chico de 15 que a alguien de 70.
+Estilo: español rioplatense (vos), cálido y claro. MÁXIMO 3 oraciones cortas por respuesta, porque muchas veces te escuchan en audio: sin listas, sin markdown, sin emojis.
 Reglas:
 1) Nunca inventes propiedades, precios ni características: usá siempre buscar_propiedades antes de recomendar. Las tarjetas con el detalle aparecen solas en la pantalla, así que nombrá como mucho 2 propiedades y explicá en una frase por qué encajan con lo que te contó.
 2) Traducí lo que cuenta el cliente a etiquetas de estilo_vida (ej.: "tengo un perro" → mascotas y mascotas=true; "corro por la costa" o "cerca del río" → río, running; "trabajo desde casa" → home office; "tengo hijos" → familia, escuelas).
@@ -299,37 +301,86 @@ function mockAgente(texto, ses, emit) {
   emit({ t: 'tool', name: 'buscar_propiedades', ...d });
   const r = buscarPropiedades(a, ses);
   emit({ t: 'tool_result', name: 'buscar_propiedades', summary: resumirResultado('buscar_propiedades', r), data: r });
-  if (!r.total) return 'No encontré nada con eso, ¿me contás un poco más qué buscás?';
-  return `(modo demo sin IA) Encontré ${r.total} opciones; la que mejor encaja es "${r.resultados[0].titulo}" en ${r.resultados[0].zona}, a ${r.resultados[0].precio}. ¿Querés que te agende una visita?`;
+  if (!r.total) return 'Mirá, con eso justo no tengo nada ahora, pero no te preocupes. ¿Me contás un poquito más qué necesitás así te busco la mejor opción?';
+  return `¡Qué lindo lo que me contás! Mirá, tengo justo algo que te puede gustar: ${r.resultados[0].titulo}, a ${r.resultados[0].precio}. Te dejé las fotos al lado; ¿querés que te reserve una visita para conocerla?`;
 }
 
-async function correrAgente(ses, texto, emit) {
-  if (AI.provider === 'mock') return mockAgente(texto, ses, emit);
+// Bucle de agente genérico: sirve para Lola (clientes) y para el Copiloto (asesores)
+const LOLA = { system: () => systemPrompt(), tools: TOOLS, ejecutar: ejecutarTool, describir: describirTool, resumir: resumirResultado, mock: mockAgente, maxTokens: 600, fallback: 'Dame un segundito que lo reviso con un asesor y te confirmo.' };
+
+async function correrAgente(ses, texto, emit, cfg = LOLA) {
+  if (AI.provider === 'mock') return cfg.mock(texto, ses, emit);
   const p = providers[AI.provider];
   ses.histLen = ses.history.length;
   ses.history.push(p.user(texto));
-  for (let i = 0; i < 6; i++) {
-    const r = await p.call(ses.history, { system: systemPrompt(), tools: TOOLS });
+  for (let i = 0; i < 7; i++) {
+    const r = await p.call(ses.history, { system: cfg.system(), tools: cfg.tools, maxTokens: cfg.maxTokens });
     ses.history.push(r.assistantMsg);
     if (!r.toolCalls.length) return r.text.trim();
     const results = [];
     for (const tc of r.toolCalls) {
-      emit({ t: 'tool', name: tc.name, ...describirTool(tc.name, tc.args) });
+      emit({ t: 'tool', name: tc.name, ...cfg.describir(tc.name, tc.args) });
       let result;
-      try { result = ejecutarTool(tc.name, tc.args, ses); } catch (e) { result = { error: 'Falló la herramienta' }; }
-      emit({ t: 'tool_result', name: tc.name, summary: resumirResultado(tc.name, result), data: result });
+      try { result = cfg.ejecutar(tc.name, tc.args, ses); } catch (e) { result = { error: 'Falló la herramienta' }; }
+      emit({ t: 'tool_result', name: tc.name, summary: cfg.resumir(tc.name, result), data: result });
       results.push({ id: tc.id, result });
     }
     ses.history.push(...p.toolResults(results));
   }
-  return 'Dame un segundito que lo reviso con un asesor y te confirmo.';
+  return cfg.fallback;
 }
+
+// --- Copiloto comercial para asesores ---
+const TOOLS_ASESOR = [
+  { name: 'ver_leads', description: 'Lista los leads (clientes interesados) con temperatura, zona, presupuesto, resumen, teléfono y minutos esperando respuesta humana.', parameters: { type: 'object', properties: { temperatura: { type: 'string', enum: ['caliente', 'tibio', 'frio'] }, zona: { type: 'string' }, operacion: { type: 'string', enum: ['venta', 'alquiler'] }, nombre: { type: 'string', description: 'Filtra por nombre (parcial)' } } } },
+  { name: 'buscar_propiedades', description: 'Busca en el catálogo de la inmobiliaria con los mismos filtros que usa Lola.', parameters: TOOLS[0].parameters },
+  { name: 'ver_visitas', description: 'Visitas agendadas con fecha, propiedad y cliente.', parameters: { type: 'object', properties: {} } },
+  { name: 'ver_demanda', description: 'Demanda (consultas) vs oferta del catálogo por zona, y búsquedas sin resultado.', parameters: { type: 'object', properties: {} } },
+  { name: 'ver_metricas', description: 'KPIs del día: consultas, leads calientes, visitas, esperando más de 2 h, tiempo de respuesta.', parameters: { type: 'object', properties: {} } },
+];
+
+function ejecutarAsesor(nombre, a) {
+  if (nombre === 'ver_leads') {
+    return leadsOrdenados().filter(l =>
+      (!a.temperatura || l.temperatura === a.temperatura) && (!a.operacion || l.operacion === a.operacion) &&
+      (!a.zona || norm(l.zona) === norm(a.zona)) && (!a.nombre || norm(l.nombre).includes(norm(a.nombre))))
+      .map(({ ejemplo, ...l }) => l);
+  }
+  if (nombre === 'buscar_propiedades') return buscarPropiedades(a, { vistos: new Set() }, false);
+  if (nombre === 'ver_visitas') return visitas.map(v => ({ ...v, propiedad: (PROPIEDADES.find(p => p.id === v.propiedad_id) || {}).titulo, cuando: fechaLinda(new Date(v.fecha_hora)) }));
+  if (nombre === 'ver_demanda') return mapaDemanda().map(({ lat, lng, ...z }) => z);
+  if (nombre === 'ver_metricas') return kpis();
+  return { error: 'Herramienta desconocida' };
+}
+const LABEL_ASESOR = { ver_leads: 'Revisando la cartera de clientes', buscar_propiedades: 'Cruzando con el catálogo', ver_visitas: 'Mirando la agenda de visitas', ver_demanda: 'Analizando demanda vs. oferta por zona', ver_metricas: 'Leyendo las métricas del día' };
+const COPILOTO = {
+  system: () => `Sos el Copiloto Comercial de Litoral Propiedades (Rosario): pensás como un gerente comercial senior con 20 años en el mercado inmobiliario rosarino. Le respondés a un asesor del equipo, de colega a colega.
+Cómo trabajás:
+- Antes de responder, consultá SIEMPRE los datos reales con las herramientas (leads, catálogo, visitas, demanda, métricas). Nunca respondas genérico ni de memoria, y nunca inventes datos.
+- Razoná como un profesional: priorizá por temperatura, urgencia y tiempo de espera; cruzá lo que pide cada cliente con lo que hay en el catálogo (citá propiedades por ID y precio); detectá riesgos (clientes esperando, falta de oferta).
+- Formato: primera frase = la conclusión. Después 2 a 4 viñetas cortas con el porqué, apoyado en datos concretos (nombres, números). Cerrá con una línea "Próximo paso:" con una acción concreta. Si sirve, sumá un mensaje listo para mandarle al cliente por WhatsApp entre comillas.
+- Tono: español rioplatense profesional, seguro y humano. Sin muletillas, sin emojis, sin frases de manual. Máximo ~170 palabras salvo que te pidan detalle.
+- Temas legales, impositivos o de crédito: orientá en términos generales y recomendá validarlo con escribano o contador.
+Ahora es ${fechaLinda(new Date())}.`,
+  tools: TOOLS_ASESOR, ejecutar: ejecutarAsesor,
+  describir: (n, a) => ({ label: LABEL_ASESOR[n] || n, detail: Object.entries(a || {}).filter(([, v]) => v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' · ') || 'todo' }),
+  resumir: (n, r) => Array.isArray(r) ? `${r.length} registro${r.length === 1 ? '' : 's'}` : n === 'buscar_propiedades' ? `${r.total} propiedades` : 'listo',
+  mock: (texto, ses, emit) => {
+    emit({ t: 'tool', name: 'ver_leads', label: LABEL_ASESOR.ver_leads, detail: 'temperatura: caliente' });
+    const r = ejecutarAsesor('ver_leads', { temperatura: 'caliente' });
+    emit({ t: 'tool_result', name: 'ver_leads', summary: `${r.length} registros`, data: r });
+    return `(modo demo sin IA) Tenés ${r.length} leads calientes. Empezá por ${r[0] ? r[0].nombre : '—'}.\nPróximo paso: llamalo hoy.`;
+  },
+  maxTokens: 900,
+  fallback: 'No llegué a cerrar el análisis; reformulame la pregunta más acotada y lo vemos.',
+};
 
 // --- App ---
 const app = express();
 app.use(express.json({ limit: '20kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/panel', (req, res) => res.sendFile(path.join(__dirname, 'public', 'panel.html')));
+app.get('/asesor', (req, res) => res.sendFile(path.join(__dirname, 'public', 'asesor.html')));
 
 const validSid = s => typeof s === 'string' && /^[a-zA-Z0-9-]{8,64}$/.test(s);
 
@@ -364,6 +415,50 @@ app.post('/api/chat', async (req, res) => {
     ses.busy = false;
     res.end();
   }
+});
+
+// Copiloto de asesores: mismo streaming, otras herramientas y otra personalidad
+const sesionesAsesor = new Map();
+app.post('/api/asesor', async (req, res) => {
+  const { sessionId, mensaje } = req.body || {};
+  if (!validSid(sessionId) || typeof mensaje !== 'string' || !mensaje.trim() || mensaje.length > 1500) {
+    return res.status(400).json({ error: 'Mensaje inválido' });
+  }
+  if (!sesionesAsesor.has(sessionId)) sesionesAsesor.set(sessionId, { history: [] });
+  const ses = sesionesAsesor.get(sessionId);
+  if (ses.busy) return res.status(429).json({ error: 'Todavía estoy analizando la pregunta anterior.' });
+  ses.busy = true;
+  res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('X-Accel-Buffering', 'no');
+  const emit = e => res.write(JSON.stringify(e) + '\n');
+  const t0 = Date.now();
+  emit({ t: 'thinking' });
+  try {
+    const texto = await correrAgente(ses, mensaje.trim(), emit, COPILOTO);
+    emit({ t: 'reply', text: texto || 'No tengo una respuesta clara con estos datos.', ms: Date.now() - t0 });
+  } catch (e) {
+    console.error('[asesor]', e.message);
+    ses.history.length = ses.histLen || 0;
+    emit({ t: 'error', text: 'Se cortó la conexión con la IA. Probá de nuevo en un momento.' });
+  } finally {
+    ses.busy = false;
+    res.end();
+  }
+});
+
+// Resumen de la conversación para seguir por WhatsApp
+app.get('/api/resumen/:sid', (req, res) => {
+  if (!validSid(req.params.sid) || !sesiones.has(req.params.sid)) return res.json({ texto: '', numero: WHATSAPP });
+  const ses = sesiones.get(req.params.sid);
+  const lead = ses.leadId && leads.find(l => l.id === ses.leadId);
+  const props = [...ses.vistos].map(id => PROPIEDADES.find(p => p.id === id)).filter(Boolean).slice(0, 3);
+  const vis = visitas.filter(v => lead && !v.ejemplo && v.lead === lead.nombre);
+  const lineas = ['Hola Litoral Propiedades! Vengo de hablar con Lola en la web 🏠'];
+  if (lead) lineas.push('Busco: ' + lead.resumen);
+  if (props.length) lineas.push('Me interesaron: ' + props.map(p => p.id + ' ' + p.titulo).join(' / '));
+  vis.forEach(v => lineas.push('Visita agendada: ' + v.propiedad_id + ', ' + fechaLinda(new Date(v.fecha_hora))));
+  res.json({ texto: lineas.join('\n'), numero: WHATSAPP });
 });
 
 app.post('/api/escena', async (req, res) => {
@@ -401,23 +496,29 @@ function mapaDemanda() {
   });
 }
 
-app.get('/api/panel', (req, res) => {
+function leadsOrdenados() {
   const orden = { caliente: 0, tibio: 1, frio: 2 };
   const ahora = Date.now();
-  const lista = [...leads].sort((a, b) => orden[a.temperatura] - orden[b.temperatura] || new Date(b.creado) - new Date(a.creado))
+  return [...leads].sort((a, b) => orden[a.temperatura] - orden[b.temperatura] || new Date(b.creado) - new Date(a.creado))
     .map(l => ({ ...l, esperandoMin: l.estado === 'esperando' ? Math.round((ahora - new Date(l.creado)) / 60000) : 0 }));
+}
+function kpis() {
   const prom = stats.tiempos.length ? Math.round(stats.tiempos.reduce((a, b) => a + b, 0) / stats.tiempos.length) : null;
+  return {
+    consultas: stats.consultas + leads.filter(l => l.ejemplo).length,
+    consultasVivo: stats.consultas,
+    calientes: leads.filter(l => l.temperatura === 'caliente').length,
+    visitas: visitas.length,
+    esperando2h: leadsOrdenados().filter(l => l.esperandoMin > 120).length,
+    tiempoRespuestaMs: prom,
+    respuestasMedidas: stats.tiempos.length,
+  };
+}
+
+app.get('/api/panel', (req, res) => {
   res.json({
-    kpis: {
-      consultas: stats.consultas + leads.filter(l => l.ejemplo).length,
-      consultasVivo: stats.consultas,
-      calientes: leads.filter(l => l.temperatura === 'caliente').length,
-      visitas: visitas.length,
-      esperando2h: lista.filter(l => l.esperandoMin > 120).length,
-      tiempoRespuestaMs: prom,
-      respuestasMedidas: stats.tiempos.length,
-    },
-    leads: lista,
+    kpis: kpis(),
+    leads: leadsOrdenados(),
     visitas: visitas.map(v => ({ ...v, propiedad: (PROPIEDADES.find(p => p.id === v.propiedad_id) || {}).titulo, cuando: fechaLinda(new Date(v.fecha_hora)) }))
       .sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora)),
     mapa: mapaDemanda(),

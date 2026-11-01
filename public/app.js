@@ -15,7 +15,7 @@ const ICON = { buscar_propiedades: '🔎', crear_lead: '📝', agendar_visita: '
 const QUICK_INICIO = ['🏠 Quiero alquilar', '🔑 Quiero comprar', '🌊 Algo cerca del río', '🐶 Tengo mascota', '🎓 Algo económico para estudiar'];
 const QUICK_RESULTADOS = ['📅 Quiero visitar la primera', '💸 ¿Algo más barato?', '📍 Mostrame otra zona', '👤 Prefiero que me llame un asesor'];
 function setQuick(lista) {
-  $('#quick').innerHTML = lista.map(t => `<button type="button" class="chip">${esc(t)}</button>`).join('');
+  $('#quick').innerHTML = lista.map(t => `<button type="button" class="chip"${/WhatsApp/.test(t) ? ' data-wa="1"' : ''}>${esc(t)}</button>`).join('');
 }
 $('#quick').addEventListener('click', e => { if (e.target.classList.contains('chip')) enviar(e.target.textContent.replace(/^\S+\s/, '')); });
 
@@ -87,12 +87,13 @@ cards.addEventListener('click', async e => {
   b.disabled = false; b.textContent = '✨ Imaginá tu vida acá';
 });
 
-async function enviar(texto) {
+async function enviar(texto, opts = {}) {
   texto = texto.trim();
   if (!texto || busy) return;
   busy = true; $('#send').disabled = true;
   setQuick([]);
-  addMsg(texto, 'user');
+  if (opts.audio) burbujaAudio(texto, 'user', opts.dur, 'Audio');
+  else addMsg(texto, 'user');
   const typing = addMsg('', 'bot');
   typing.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
   $('#live').classList.add('on');
@@ -130,12 +131,15 @@ async function enviar(texto) {
   pensando.className = 'step ok';
   respuesta = respuesta || { t: 'error', text: 'Uy, no pude conectarme. ¿Probás de nuevo?' };
   const meta = respuesta.ms ? `Lola · respondió en ${(respuesta.ms / 1000).toFixed(1)} s` : 'Lola';
-  addMsg(respuesta.text, respuesta.t === 'error' ? 'bot err' : 'bot', meta);
+  // Si el cliente mandó audio, Lola contesta con audio (y la transcripción a mano)
+  let burbuja;
+  if (opts.audio && respuesta.t !== 'error') burbuja = burbujaAudio(respuesta.text, 'bot', Math.max(2, Math.round(respuesta.text.split(/\s+/).length / 2.6)), meta);
+  else burbuja = addMsg(respuesta.text, respuesta.t === 'error' ? 'bot err' : 'bot', meta);
   brainStep('💬', 'Te respondió', respuesta.ms ? `en ${(respuesta.ms / 1000).toFixed(1)} segundos` : '', 'ok');
   $('#live').classList.remove('on');
   busy = false; $('#send').disabled = false;
-  setQuick(visitaHecha ? ['🙌 ¡Gracias!', '🏠 Quiero ver otras opciones'] : hayTarjetas ? QUICK_RESULTADOS : QUICK_INICIO);
-  if (llamada) hablar(respuesta.text);
+  setQuick(visitaHecha ? ['💬 Pasar a WhatsApp', '🏠 Quiero ver otras opciones'] : hayTarjetas ? QUICK_RESULTADOS : QUICK_INICIO);
+  if (llamada || (opts.audio && respuesta.t !== 'error')) hablar(respuesta.text, burbuja);
 }
 
 $('#form').addEventListener('submit', e => { e.preventDefault(); const v = $('#input').value; $('#input').value = ''; enviar(v); });
@@ -148,27 +152,77 @@ const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let llamada = false, rec = null, voz = null;
 function elegirVoz() {
   const vs = speechSynthesis.getVoices();
-  voz = vs.find(v => v.lang === 'es-AR') || vs.find(v => v.lang === 'es-US') || vs.find(v => /^es/.test(v.lang) && /female|mujer|helena|sabina|paulina|monica|google/i.test(v.name)) || vs.find(v => /^es/.test(v.lang)) || null;
+  // Voz de secretaria: primero voces femeninas naturales (neurales), argentinas si hay
+  const es = vs.filter(v => /^es/i.test(v.lang));
+  const fem = /elena|helena|sabina|paloma|dalia|elvira|laura|lucia|paulina|monica|isabela|camila|valentina|female|mujer/i;
+  const natural = /natural|online|neural|google/i;
+  voz = es.find(v => v.lang === 'es-AR' && fem.test(v.name) && natural.test(v.name))
+    || es.find(v => fem.test(v.name) && natural.test(v.name))
+    || es.find(v => v.lang === 'es-AR' && fem.test(v.name))
+    || es.find(v => /google/i.test(v.name) && /es-(US|419|AR|MX)/i.test(v.lang))
+    || es.find(v => fem.test(v.name)) || es.find(v => v.lang === 'es-AR') || es[0] || null;
 }
 if ('speechSynthesis' in window) { elegirVoz(); speechSynthesis.onvoiceschanged = elegirVoz; }
 const sinVoz = () => alert('Tu navegador no permite hablar 😕 Probá desde Google Chrome. Mientras tanto, podés escribirle a Lola o tocar los botones.');
 
 function setCall(txt, activo) { $('#callText').textContent = txt; $('#wave').classList.toggle('idle', !activo); }
 
-// Micrófono del chat: dictar un mensaje (sin llamada)
-$('#btnMic').addEventListener('click', () => {
+// Nota de voz estilo WhatsApp: tocás 🎤, contás tu situación, tocás ➤ y se manda como audio
+let grab = null;
+const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function iniciarAudio() {
   if (!SR) return sinVoz();
   if (busy || llamada) return;
+  speechSynthesis?.cancel();
   const r = new SR();
-  r.lang = 'es-AR'; r.interimResults = true;
-  const input = $('#input'), mic = $('#btnMic');
-  let final = '';
-  mic.textContent = '⏺'; input.placeholder = 'Te escucho… hablá tranquilo';
-  r.onresult = e => { let t = ''; for (const x of e.results) { t += x[0].transcript; if (x.isFinal) final = t; } input.value = t; };
-  r.onend = () => { mic.textContent = '🎤'; input.placeholder = 'Escribí tu consulta acá…'; if (final.trim()) { input.value = ''; enviar(final); } };
-  r.onerror = e => { if (e.error === 'not-allowed') alert('Necesito permiso para usar el micrófono.'); };
+  r.lang = 'es-AR'; r.interimResults = true; r.continuous = true;
+  grab = { r, texto: '', parcial: '', t0: Date.now(), activo: true, cancelado: false };
+  const bar = $('#recbar');
+  bar.hidden = false; $('#form').hidden = true;
+  grab.timer = setInterval(() => { $('#recTime').textContent = mmss(Math.round((Date.now() - grab.t0) / 1000)); }, 250);
+  r.onresult = e => {
+    let fin = '', par = '';
+    for (const x of e.results) { if (x.isFinal) fin += x[0].transcript + ' '; else par += x[0].transcript; }
+    grab.texto = fin; grab.parcial = par;
+    $('#recTxt').textContent = (fin + par).trim() || 'Te escucho…';
+  };
+  // Chrome corta la escucha tras un silencio: si seguimos grabando, se reanuda sola
+  r.onend = () => { if (grab && grab.activo) { try { r.start(); } catch {} } };
+  r.onerror = e => { if (e.error === 'not-allowed') { cerrarAudio(true); alert('Necesito permiso para usar el micrófono.'); } };
   try { r.start(); } catch {}
-});
+}
+function cerrarAudio(cancelar) {
+  if (!grab) return;
+  const g = grab; grab = null;
+  g.activo = false; clearInterval(g.timer);
+  try { g.r.stop(); } catch {}
+  $('#recbar').hidden = true; $('#form').hidden = false;
+  $('#recTxt').textContent = 'Te escucho…'; $('#recTime').textContent = '0:00';
+  if (cancelar) return;
+  const dur = Math.max(1, Math.round((Date.now() - g.t0) / 1000));
+  // Pequeña espera para que llegue el último fragmento reconocido
+  setTimeout(() => {
+    const texto = (g.texto + g.parcial).trim();
+    if (!texto) return addMsg('No llegué a escuchar el audio 🙈 ¿Probás de nuevo, un poquito más cerca del micrófono?', 'bot', 'Lola');
+    enviar(texto, { audio: true, dur });
+  }, 350);
+}
+$('#btnMic').addEventListener('click', iniciarAudio);
+$('#recSend').addEventListener('click', () => cerrarAudio(false));
+$('#recCancel').addEventListener('click', () => cerrarAudio(true));
+
+// Burbuja de audio (del cliente o de Lola) con onda, duración y transcripción
+const ONDA = Array.from({ length: 28 }, (_, i) => 6 + Math.round(Math.abs(Math.sin(i * 1.7) * 14 + Math.sin(i * .6) * 6)));
+function burbujaAudio(texto, quien, dur, meta) {
+  const d = document.createElement('div');
+  d.className = 'msg audio ' + quien;
+  d.innerHTML = `<div class="audio-row"><button class="play" aria-label="Escuchar">▶</button><div class="onda">${ONDA.map(h => `<i style="height:${h}px"></i>`).join('')}</div><span class="dur">${mmss(dur)}</span></div>
+    <details><summary>Ver transcripción</summary><div class="transcripcion">${esc(texto)}</div></details>${meta ? `<span class="meta">${esc(meta)}</span>` : ''}`;
+  d.querySelector('.play').addEventListener('click', () => hablar(texto, d));
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+  return d;
+}
 
 // Llamada: Lola escucha, responde hablando y vuelve a escuchar
 function escuchar() {
@@ -191,13 +245,18 @@ function escuchar() {
   try { rec.start(); } catch {}
 }
 
-function hablar(texto) {
+function hablar(texto, burbuja) {
   if (!('speechSynthesis' in window)) return escuchar();
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(texto.replace(/[*_#]/g, ''));
-  u.lang = voz?.lang || 'es-AR'; if (voz) u.voice = voz; u.rate = 1.05;
-  u.onend = () => { if (llamada) escuchar(); };
-  u.onerror = () => { if (llamada) escuchar(); };
+  document.querySelectorAll('.msg.audio.sonando').forEach(b => b.classList.remove('sonando'));
+  // Sin emojis ni símbolos, para que suene como una persona
+  const limpio = texto.replace(/[*_#]/g, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\bLP-(\d+)/g, 'propiedad $1');
+  const u = new SpeechSynthesisUtterance(limpio);
+  u.lang = voz?.lang || 'es-AR'; if (voz) u.voice = voz;
+  u.rate = 0.98; u.pitch = 1.08;
+  const fin = () => { burbuja?.classList.remove('sonando'); if (llamada) escuchar(); };
+  u.onend = fin; u.onerror = fin;
+  burbuja?.classList.add('sonando');
   setCall('🔊 Lola te está hablando…', true);
   speechSynthesis.speak(u);
 }
@@ -219,3 +278,54 @@ $('#btnCall').addEventListener('click', () => {
   document.querySelector('.chat').scrollIntoView({ behavior: 'smooth' });
   hablar('Hola, soy Lola de Litoral Propiedades. Contame, ¿qué estás buscando?');
 });
+
+// --- Seguir por WhatsApp (link oficial wa.me con el resumen de la charla) ---
+async function abrirWhatsApp() {
+  let texto = 'Hola Litoral Propiedades! Vengo de la web y quiero hacer una consulta 🏠', numero = '';
+  try { const j = await (await fetch('/api/resumen/' + sid)).json(); if (j.texto) texto = j.texto; numero = j.numero || ''; } catch {}
+  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
+}
+$('#btnWa').addEventListener('click', abrirWhatsApp);
+$('#quick').addEventListener('click', e => { if (e.target.dataset.wa) { e.stopImmediatePropagation(); abrirWhatsApp(); } }, true);
+
+// --- Demo guiada: recorre la app paso a paso, el presentador toca "Siguiente" ---
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+const hastaLibre = async () => { await esperar(300); while (busy) await esperar(200); };
+async function tipear(texto) {
+  const input = $('#input');
+  input.value = ''; input.focus();
+  for (const ch of texto) { input.value += ch; await esperar(28); }
+  await esperar(250);
+  input.value = '';
+  await enviar(texto);
+}
+function spot(sel) {
+  document.querySelectorAll('.spot').forEach(e => e.classList.remove('spot'));
+  const el = sel && document.querySelector(sel);
+  if (el) { el.classList.add('spot'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+}
+const PASOS = [
+  { txt: 'Un cliente entra a la web a cualquier hora (o le escribe por WhatsApp). En vez de esperar a que alguien conteste, le habla a <b>Lola</b>, como le hablaría a una persona.', run: async () => { spot('.chat'); await tipear('Busco alquilar cerca del río, tengo un perro y trabajo desde casa'); } },
+  { txt: 'Lola <b>entendió</b> lo que contó: perro → acepta mascotas, río → cerca de la costa, trabaja desde casa → espacio para oficina. Buscó en el <b>catálogo real</b> (nunca inventa propiedades) y explica por qué cada una le queda bien.', run: async () => { spot('#cards'); } },
+  { txt: 'Abajo se ve <b>lo que Lola hace por dentro</b>, en vivo: busca, anota la consulta y reserva visitas. Nada se pierde ni queda mal anotado.', run: async () => { spot('#brain'); } },
+  { txt: '✨ <b>Imaginá tu vida acá</b>: la IA le cuenta al cliente cómo sería un día suyo en esa propiedad, con lo que él mismo contó. Emociona y vende.', run: async () => { const b = document.querySelector('.imagine'); if (b) { spot('.card'); b.click(); } } },
+  { txt: 'El cliente quiere ir a verla. Lola le reserva la visita y lo anota como <b>cliente caliente</b> para que el asesor lo priorice.', run: async () => { spot('.chat'); await tipear('Me encanta la primera. ¿Puedo verla mañana a las 18? Soy Nacho, mi cel es 341 555 1234'); } },
+  { txt: 'Con un toque, el cliente sigue la charla por <b>WhatsApp</b> con todo el resumen ya escrito: qué busca, qué le gustó y su visita.', run: async () => { spot('#btnWa'); } },
+  { txt: 'Y el dueño ve todo en su <b>panel</b>: el cliente nuevo arriba de todo, las visitas, cuánto tarda Lola en responder y un <b>mapa</b> que le dice qué propiedades salir a conseguir. <br><br>Tocá Siguiente para abrirlo.', run: async () => { spot(null); } },
+];
+let paso = -1;
+async function irPaso(n) {
+  paso = n;
+  if (paso >= PASOS.length) { window.open('/panel', '_blank'); return cerrarTour(); }
+  $('#tourPaso').textContent = `Demo guiada · paso ${paso + 1} de ${PASOS.length}`;
+  $('#tourTxt').innerHTML = PASOS[paso].txt;
+  $('#tourSig').disabled = true;
+  await PASOS[paso].run();
+  await hastaLibre();
+  $('#tourSig').disabled = false;
+  $('#tourSig').textContent = paso === PASOS.length - 1 ? 'Abrir panel del dueño ▶' : 'Siguiente ▶';
+}
+function cerrarTour() { $('#tour').hidden = true; spot(null); paso = -1; }
+$('#btnDemo').addEventListener('click', () => { $('#tour').hidden = false; irPaso(0); });
+$('#tourSig').addEventListener('click', () => irPaso(paso + 1));
+$('#tourSalir').addEventListener('click', cerrarTour);

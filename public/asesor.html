@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Copiloto Comercial · Litoral Propiedades</title>
+  <meta name="theme-color" content="#2b2826">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .hero.pro { background: var(--gris); }
+    .pro-layout { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+    .ans { max-width: 92%; }
+    .ans ul { margin: 6px 0; padding-left: 20px; }
+    .ans li { margin: 3px 0; }
+    .ans .next { display: block; margin-top: 8px; padding: 8px 12px; background: var(--rojo-suave); border-left: 3px solid var(--rojo); border-radius: 6px; color: var(--rojo2); font-weight: 600; }
+    .ans q { display: block; margin-top: 8px; padding: 8px 12px; background: #e9f9ef; border-left: 3px solid #25d366; border-radius: 6px; font-style: italic; quotes: none; }
+    .mic-big { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 58px; border-radius: 16px; border: 0; background: var(--rojo); color: #fff; font-weight: 800; font-size: 1.05rem; }
+    .mic-big.on { background: var(--gris); animation: ring 1.4s infinite; }
+    .mic-wrap { padding: 12px 14px 0; }
+    .toggle { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .85rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">
+      <div class="logo" style="background:var(--gris)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></div>
+      <div><div class="brand-name">Copiloto Comercial</div><small>Litoral Propiedades · uso interno de asesores</small></div>
+    </a>
+    <nav class="nav"><a class="pill hide-m" href="/">Web clientes</a><a class="pill" href="/panel">Panel</a><a class="pill on" href="/asesor">Copiloto</a></nav>
+  </header>
+  <section class="hero pro">
+    <div class="hero-in">
+      <div>
+        <h1>Preguntale como a tu mejor gerente</h1>
+        <p>Hablale o escribile. Antes de contestar revisa tus clientes, el catálogo, la agenda y la demanda, y te dice qué hacer.</p>
+      </div>
+    </div>
+  </section>
+
+  <main class="layout pro-layout">
+    <section class="panel chat">
+      <div class="panel-head">
+        <div class="lola"><div class="avatar" style="border-color:var(--gris);color:var(--gris);background:#efebe7">C</div><div><b>Copiloto</b><span>Conectado a la cartera, el catálogo y la agenda</span></div></div>
+        <label class="toggle"><input type="checkbox" id="leer" checked> 🔊 Leer en voz alta</label>
+      </div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="quick" id="quick"></div>
+      <div class="mic-wrap"><button class="mic-big" id="btnMic">🎤 Tocá y hacé tu pregunta</button></div>
+      <form class="composer" id="form" autocomplete="off">
+        <input id="input" maxlength="1500" placeholder="…o escribila acá" aria-label="Tu pregunta">
+        <button class="btn" id="send">Preguntar</button>
+      </form>
+    </section>
+    <aside class="side">
+      <section class="panel">
+        <div class="panel-head"><h2><span class="brain-live" id="live"></span>Cómo lo está pensando</h2></div>
+        <div class="brain-body" id="brain" style="max-height:none"><div class="brain-empty">Acá vas a ver qué datos revisa el Copiloto antes de responderte: no contesta de memoria, contesta con tu información real.</div></div>
+      </section>
+    </aside>
+  </main>
+  <script src="/asesor.js"></script>
+</body>
+</html>

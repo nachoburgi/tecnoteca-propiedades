@@ -19,6 +19,15 @@ const hace = iso => {
   return m < 1 ? 'recién' : m < 60 ? `hace ${m} min` : `hace ${Math.floor(m / 60)} h ${m % 60} min`;
 };
 
+// WhatsApp real (wa.me) para que el asesor le escriba al lead con un toque
+function waLink(l) {
+  let n = String(l.telefono || '').replace(/\D/g, '');
+  if (n.length < 8) return '';
+  if (!n.startsWith('54')) n = '549' + n.replace(/^0/, '');
+  const txt = `Hola ${l.nombre}! Soy asesor de Litoral Propiedades. Vi tu consulta con Lola: ${l.resumen} ¿Te ayudo a coordinar?`;
+  return `<br><a class="wa-mini" target="_blank" rel="noopener" href="https://wa.me/${n}?text=${encodeURIComponent(txt)}">💬 WhatsApp</a>`;
+}
+
 function render(d) {
   const k = d.kpis;
   $('#kConsultas').textContent = k.consultas;
@@ -34,7 +43,7 @@ function render(d) {
     vistos.add(l.id);
     return `<tr class="${nuevo ? 'new' : ''}">
       <td><span class="temp ${esc(l.temperatura)}">${l.temperatura === 'caliente' ? '🔥 ' : ''}${esc(l.temperatura)}</span></td>
-      <td><b>${esc(l.nombre)}</b>${l.ejemplo ? '<span class="ej">ejemplo</span>' : ''}<br><small style="color:var(--muted)">${esc(l.telefono || 'sin teléfono')}</small></td>
+      <td><b>${esc(l.nombre)}</b>${l.ejemplo ? '<span class="ej">ejemplo</span>' : ''}<br><small style="color:var(--muted)">${esc(l.telefono || 'sin teléfono')}</small>${waLink(l)}</td>
       <td>${esc(l.operacion || '–')} · ${esc(l.zona || 'sin zona')}<br><small style="color:var(--muted)">${esc(l.presupuesto || '')}${l.ambientes ? ' · ' + esc(l.ambientes) + ' amb' : ''}${l.urgencia ? ' · ' + esc(l.urgencia) : ''}</small></td>
       <td>${esc(l.resumen)}</td>
       <td style="white-space:nowrap">${hace(l.creado)}${l.esperandoMin > 120 ? '<br><span class="wait">⚠ esperando</span>' : ''}</td></tr>`;
