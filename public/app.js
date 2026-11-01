@@ -182,7 +182,7 @@ const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 function iniciarAudio() {
   if (!SR) return sinVoz();
   if (busy || llamada) return;
-  speechSynthesis?.cancel();
+  callarLola();
   const r = new SR();
   r.lang = 'es-AR'; r.interimResults = true; r.continuous = true;
   grab = { r, texto: '', parcial: '', t0: Date.now(), activo: true, cancelado: false };
@@ -237,7 +237,7 @@ function burbujaAudio(texto, quien, dur, meta) {
 let escuchando = false, silencios = 0;
 function escuchar() {
   if (!llamada || busy || escuchando) return;
-  speechSynthesis.cancel();
+  callarLola();
   escuchando = true;
   rec = new SR();
   rec.lang = 'es-AR'; rec.interimResults = true; rec.continuous = false;
@@ -265,19 +265,44 @@ function escuchar() {
 // Lola habla frase por frase (más natural, y evita que Chrome corte audios largos)
 let hablaId = 0;
 window._frases = [];
+// Voz real (OpenAI TTS desde nuestro servidor); si no está, usamos la voz del navegador
+let vozIA = false, audioLola = null;
+fetch('/api/voz/estado').then(r => r.json()).then(j => { vozIA = !!j.disponible; }).catch(() => {});
+function callarLola() { try { speechSynthesis.cancel(); } catch {} if (audioLola) { audioLola.pause(); audioLola = null; } }
+
 function hablar(texto, burbuja) {
-  if (!('speechSynthesis' in window)) return escuchar();
   const id = ++hablaId;
-  speechSynthesis.cancel(); speechSynthesis.resume();
+  callarLola();
   try { rec && escuchando && rec.abort(); } catch {}
   document.querySelectorAll('.msg.audio.sonando').forEach(b => b.classList.remove('sonando'));
   // Sin emojis ni símbolos, para que suene como una persona
   const limpio = texto.replace(/[*_#]/g, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\bLP-(\d+)/g, 'propiedad $1').replace(/\$\s?([\d.]+)\/mes/g, '$1 pesos por mes').replace(/USD\s?([\d.]+)/g, '$1 dólares');
-  const frases = limpio.match(/[^.!?¿¡]*[¿¡]?[^.!?]*[.!?]+|\S[^.!?]*$/g)?.map(f => f.trim()).filter(Boolean) || [limpio];
-  let terminado = false;
+  let terminado = false, respaldo;
   const fin = () => { if (terminado || id !== hablaId) return; terminado = true; clearTimeout(respaldo); burbuja?.classList.remove('sonando'); if (llamada) setTimeout(escuchar, 300); };
+  burbuja?.classList.add('sonando');
+  setCall('🔊 Lola te está hablando…', true);
+  if (vozIA) {
+    respaldo = setTimeout(fin, 25000 + limpio.length * 90);
+    fetch('/api/voz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto: limpio }) })
+      .then(r => { if (!r.ok) throw new Error(); return r.blob(); })
+      .then(b => {
+        if (id !== hablaId) return;
+        audioLola = new Audio(URL.createObjectURL(b));
+        audioLola.onended = fin; audioLola.onerror = fin;
+        return audioLola.play();
+      })
+      .catch(() => { if (id === hablaId) { clearTimeout(respaldo); vozNavegador(limpio, id, fin, r => { respaldo = r; }); } });
+    return;
+  }
+  vozNavegador(limpio, id, fin, r => { respaldo = r; });
+}
+
+function vozNavegador(limpio, id, fin, setRespaldo) {
+  if (!('speechSynthesis' in window)) return fin();
+  speechSynthesis.resume();
+  const frases = limpio.match(/[^.!?¿¡]*[¿¡]?[^.!?]*[.!?]+|\S[^.!?]*$/g)?.map(f => f.trim()).filter(Boolean) || [limpio];
   // Respaldo: si el navegador no avisa que terminó, abrimos el micrófono igual
-  const respaldo = setTimeout(fin, 2000 + limpio.length * 90);
+  setRespaldo(setTimeout(fin, 2000 + limpio.length * 90));
   window._frases = frases.map((f, i) => {
     const u = new SpeechSynthesisUtterance(f);
     u.lang = voz?.lang || 'es-AR'; if (voz) u.voice = voz;
@@ -285,15 +310,13 @@ function hablar(texto, burbuja) {
     if (i === frases.length - 1) { u.onend = fin; u.onerror = fin; }
     return u;
   });
-  burbuja?.classList.add('sonando');
-  setCall('🔊 Lola te está hablando…', true);
   window._frases.forEach(u => speechSynthesis.speak(u));
 }
 
 function cortar() {
   llamada = false; escuchando = false; hablaId++;
   try { rec && rec.abort(); } catch {}
-  speechSynthesis?.cancel();
+  callarLola();
   $('#btnCall').classList.remove('on'); $('#btnCall span').textContent = 'Hablar con Lola';
   $('#callbar').classList.remove('on');
 }
@@ -306,10 +329,10 @@ $('#btnCall').addEventListener('click', () => {
   $('#callbar').classList.add('on');
   document.querySelector('.chat').scrollIntoView({ behavior: 'smooth' });
   silencios = 0;
-  if (!vozNatural) $('#callTip').hidden = false;
+  if (!vozNatural && !vozIA) $("#callTip").hidden = false;
   hablar('Hola, ¿cómo estás? Soy Lola, de Tecnoteca Propiedades. Contame tranquilo qué estás buscando.');
 });
-$('#callNow').addEventListener('click', () => { hablaId++; speechSynthesis.cancel(); silencios = 0; escuchar(); });
+$('#callNow').addEventListener('click', () => { hablaId++; callarLola(); silencios = 0; escuchar(); });
 
 // --- Seguir por WhatsApp (link oficial wa.me con el resumen de la charla) ---
 async function abrirWhatsApp() {

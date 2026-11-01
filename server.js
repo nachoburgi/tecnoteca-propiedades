@@ -232,7 +232,7 @@ Estilo: español rioplatense (vos), cálido y claro. MÁXIMO 3 oraciones cortas 
 Reglas:
 1) Nunca inventes propiedades, precios ni características: usá siempre buscar_propiedades antes de recomendar. Las tarjetas con el detalle aparecen solas en la pantalla, así que nombrá como mucho 2 propiedades y explicá en una frase por qué encajan con lo que te contó.
 2) Traducí lo que cuenta el cliente a etiquetas de estilo_vida (ej.: "tengo un perro" → mascotas y mascotas=true; "corro por la costa" o "cerca del río" → río, running; "trabajo desde casa" → home office; "tengo hijos" → familia, escuelas).
-3) Preguntá de a una cosa por vez.
+3) Preguntá de a una cosa por vez. No pongas zona en la búsqueda si el cliente no nombró un barrio ("cerca del río" es estilo_vida río, no una zona).
 4) Registrá el lead con crear_lead apenas sepas qué busca (aunque falte el nombre) y volvé a llamarla para actualizarlo cuando te dé nombre, teléfono o cambie algo. Temperatura: caliente = presupuesto claro y urgencia, o quiere visitar; tibio = explora pero da datos; frio = consulta vaga.
 5) Si quiere visitar, pedí día y hora (y su nombre si no lo tenés) y usá agendar_visita con fecha ISO en hora de Argentina (-03:00).
 6) Honorarios, comisiones, temas legales, garantías o financiación: decí que eso lo confirma un asesor humano.
@@ -251,8 +251,8 @@ const endpoint = suf => AI.base.endsWith(suf) ? AI.base : AI.base + suf;
 
 const providers = {
   openai: {
-    async call(history, { system, tools, maxTokens = 600 }) {
-      const body = { model: AI.model, messages: [{ role: 'system', content: system }, ...history], max_tokens: maxTokens };
+    async call(history, { system, tools, maxTokens = 600, model }) {
+      const body = { model: model || AI.model, messages: [{ role: 'system', content: system }, ...history], max_tokens: maxTokens, temperature: 0.6 };
       if (tools) { body.tools = tools.map(t => ({ type: 'function', function: t })); body.tool_choice = 'auto'; }
       const j = await postJSON(endpoint('/chat/completions'), { Authorization: `Bearer ${AI.key}` }, body);
       const m = j.choices[0].message;
@@ -268,8 +268,8 @@ const providers = {
     toolResults: results => results.map(r => ({ role: 'tool', tool_call_id: r.id, content: JSON.stringify(r.result) })),
   },
   anthropic: {
-    async call(history, { system, tools, maxTokens = 600 }) {
-      const body = { model: AI.model, max_tokens: maxTokens, system, messages: history };
+    async call(history, { system, tools, maxTokens = 600, model }) {
+      const body = { model: model || AI.model, max_tokens: maxTokens, system, messages: history };
       if (tools) body.tools = tools.map(t => ({ name: t.name, description: t.description, input_schema: t.parameters }));
       const j = await postJSON(endpoint('/v1/messages'), { 'x-api-key': AI.key, 'anthropic-version': '2023-06-01' }, body);
       const text = j.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
@@ -314,7 +314,7 @@ async function correrAgente(ses, texto, emit, cfg = LOLA) {
   ses.histLen = ses.history.length;
   ses.history.push(p.user(texto));
   for (let i = 0; i < 7; i++) {
-    const r = await p.call(ses.history, { system: cfg.system(), tools: cfg.tools, maxTokens: cfg.maxTokens });
+    const r = await p.call(ses.history, { system: cfg.system(), tools: cfg.tools, maxTokens: cfg.maxTokens, model: cfg.model });
     ses.history.push(r.assistantMsg);
     if (!r.toolCalls.length) return r.text.trim();
     const results = [];
@@ -372,6 +372,7 @@ Ahora es ${fechaLinda(new Date())}.`,
     return `(modo demo sin IA) Tenés ${r.length} leads calientes. Empezá por ${r[0] ? r[0].nombre : '—'}.\nPróximo paso: llamalo hoy.`;
   },
   maxTokens: 900,
+  model: process.env.AI_MODEL_ASESOR || '',
   fallback: 'No llegué a cerrar el análisis; reformulame la pregunta más acotada y lo vemos.',
 };
 
@@ -459,6 +460,32 @@ app.get('/api/resumen/:sid', (req, res) => {
   if (props.length) lineas.push('Me interesaron: ' + props.map(p => p.id + ' ' + p.titulo).join(' / '));
   vis.forEach(v => lineas.push('Visita agendada: ' + v.propiedad_id + ', ' + fechaLinda(new Date(v.fecha_hora))));
   res.json({ texto: lineas.join('\n'), numero: WHATSAPP });
+});
+
+// Voz de Lola: texto → audio con la API de voz (OpenAI TTS), con instrucciones de tono
+const TTS = { model: process.env.AI_TTS_MODEL || '', voz: process.env.AI_TTS_VOICE || 'coral' };
+app.get('/api/voz/estado', (req, res) => res.json({ disponible: AI.provider === 'openai' && !!TTS.model }));
+app.post('/api/voz', async (req, res) => {
+  const texto = String((req.body || {}).texto || '').trim().slice(0, 900);
+  const quien = (req.body || {}).quien === 'asesor' ? 'asesor' : 'lola';
+  if (!texto || AI.provider !== 'openai' || !TTS.model) return res.status(400).json({ error: 'Voz no disponible' });
+  const instrucciones = quien === 'asesor'
+    ? 'Hablás en español de Argentina (rioplatense), con voseo y acento argentino. Sos un gerente comercial con experiencia: tono seguro, profesional, claro y tranquilo, ritmo ágil pero sin apurarte.'
+    : 'Hablás en español de Argentina (rioplatense, de Rosario), con voseo y acento argentino natural. Sos Lola, secretaria de una inmobiliaria, de unos 35 años: voz suave, dulce y delicada, cálida y tranquila, como sonriendo. Ritmo pausado, con pequeñas pausas naturales. Nada de tono de locutora ni de robot.';
+  try {
+    const r = await fetch(endpoint('/audio/speech'), {
+      method: 'POST', signal: AbortSignal.timeout(AI.timeoutMs),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${AI.key}` },
+      body: JSON.stringify({ model: TTS.model, voice: quien === 'asesor' ? 'ash' : TTS.voz, input: texto, instructions: instrucciones, response_format: 'mp3' }),
+    });
+    if (!r.ok) throw new Error(`TTS ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'no-store');
+    res.end(Buffer.from(await r.arrayBuffer()));
+  } catch (e) {
+    console.error('[voz]', e.message);
+    res.status(502).json({ error: 'No se pudo generar la voz' });
+  }
 });
 
 app.post('/api/escena', async (req, res) => {

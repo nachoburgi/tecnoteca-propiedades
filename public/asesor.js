@@ -55,7 +55,7 @@ async function preguntar(texto) {
   if (!texto || busy) return;
   busy = true; $('#send').disabled = true; $('#btnMic').disabled = true;
   setQuick([]);
-  speechSynthesis?.cancel();
+  speechSynthesis?.cancel(); audioA?.pause();
   addMsg(esc(texto), 'user');
   const typing = addMsg('<span class="typing"><i></i><i></i><i></i></span> <small style="color:var(--muted)">analizando…</small>', 'bot');
   $('#live').classList.add('on');
@@ -101,7 +101,12 @@ const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let voz = null;
 function elegirVoz() { const vs = speechSynthesis.getVoices(); voz = vs.find(v => v.lang === 'es-AR') || vs.find(v => v.lang === 'es-US') || vs.find(v => /^es/.test(v.lang)) || null; }
 if ('speechSynthesis' in window) { elegirVoz(); speechSynthesis.onvoiceschanged = elegirVoz; }
-function leer(texto) {
+let audioA = null;
+async function leer(texto) {
+  try {
+    const r = await fetch('/api/voz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto: texto.replace(/[*_#•]/g, '').replace(/^s*-s*/gm, ''), quien: 'asesor' }) });
+    if (r.ok) { audioA?.pause(); audioA = new Audio(URL.createObjectURL(await r.blob())); return audioA.play(); }
+  } catch {}
   if (!('speechSynthesis' in window)) return;
   const u = new SpeechSynthesisUtterance(texto.replace(/[*_#•"“”]/g, '').replace(/^\s*-\s*/gm, ''));
   u.lang = voz?.lang || 'es-AR'; if (voz) u.voice = voz; u.rate = 1.05;
@@ -110,7 +115,7 @@ function leer(texto) {
 $('#btnMic').addEventListener('click', () => {
   if (!SR) return alert('Tu navegador no permite dictar. Usá Google Chrome o escribí la pregunta.');
   if (busy) return;
-  speechSynthesis?.cancel();
+  speechSynthesis?.cancel(); audioA?.pause();
   const r = new SR(), b = $('#btnMic'), input = $('#input');
   r.lang = 'es-AR'; r.interimResults = true;
   let final = '';
