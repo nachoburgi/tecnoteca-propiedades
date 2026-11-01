@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Litoral Propiedades · Lola</title>
+  <meta name="description" content="Lola, la agente de IA de Litoral Propiedades: atiende por chat y voz, califica leads y agenda visitas.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><div class="logo">LP</div><div>Litoral Propiedades<small>Rosario · Atención con IA 24/7</small></div></div>
+    <nav class="nav"><a class="pill on" href="/">Cliente</a><a class="pill" href="/panel" target="_blank">Panel del dueño</a></nav>
+  </header>
+
+  <main class="layout">
+    <section class="panel chat">
+      <div class="panel-head">
+        <div class="lola"><div class="avatar">L</div><div><b>Lola</b><span id="estado">En línea · responde en segundos</span></div></div>
+        <button class="call" id="btnCall" title="Hablar con Lola por voz">📞 <span>Llamar</span></button>
+      </div>
+      <div class="callbar" id="callbar"><div class="wave idle" id="wave"><i></i><i></i><i></i><i></i></div><span id="callText">En llamada…</span></div>
+      <div class="msgs" id="msgs"></div>
+      <div class="sugs" id="sugs">
+        <button class="sug">Busco alquilar cerca del río, tengo un perro y trabajo desde casa</button>
+        <button class="sug">Quiero comprar una casa con patio en Fisherton para mi familia</button>
+        <button class="sug">¿Tienen algo económico para estudiante?</button>
+      </div>
+      <form class="composer" id="form" autocomplete="off">
+        <input id="input" maxlength="1000" placeholder="Escribile a Lola… (simula WhatsApp)">
+        <button class="btn" id="send">Enviar</button>
+      </form>
+    </section>
+
+    <aside class="side">
+      <section class="panel brain">
+        <div class="panel-head"><h2><span class="brain-live" id="live"></span>Cerebro de Lola · en vivo</h2></div>
+        <div class="brain-body" id="brain"><div class="brain-empty">Acá vas a ver lo que hace el agente en tiempo real: qué busca, qué decide y qué registra.</div></div>
+      </section>
+      <section class="panel cards-wrap">
+        <div class="panel-head"><h2>Propiedades sugeridas</h2></div>
+        <div class="cards" id="cards"><div class="brain-empty">Todavía no hay sugerencias.</div></div>
+      </section>
+    </aside>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

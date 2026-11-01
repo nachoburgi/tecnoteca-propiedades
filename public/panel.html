@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel del dueño · Litoral Propiedades</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><div class="logo">LP</div><div>Panel del dueño<small>Litoral Propiedades · se actualiza solo</small></div></div>
+    <nav class="nav"><a class="pill" href="/">Cliente</a><a class="pill on" href="/panel">Panel</a></nav>
+  </header>
+  <main class="dash">
+    <section class="kpis">
+      <div class="kpi mag"><span>Consultas</span><b id="kConsultas">–</b><small id="kConsultasVivo"></small></div>
+      <div class="kpi hot"><span>Leads calientes</span><b id="kCalientes">–</b><small>listos para cerrar</small></div>
+      <div class="kpi cian"><span>Visitas agendadas</span><b id="kVisitas">–</b><small>por Lola</small></div>
+      <div class="kpi"><span>Esperando &gt; 2 h</span><b id="kEspera">–</b><small>sin respuesta humana</small></div>
+      <div class="kpi cian"><span>Respuesta de Lola</span><b id="kTiempo">–</b><small id="kTiempoN">medido en vivo</small></div>
+    </section>
+
+    <section class="grid2">
+      <div class="panel">
+        <div class="panel-head"><h2>Mapa de demanda insatisfecha</h2><button class="btn" id="btnAnalisis" style="padding:8px 14px">🧠 Análisis de la IA</button></div>
+        <div id="mapa"></div>
+        <div class="legend"><span>Tamaño = consultas</span><span><i style="background:#34d399"></i>oferta cubre</span><span><i style="background:#fbbf24"></i>justo</span><span><i style="background:#ff2e93"></i>falta oferta</span></div>
+      </div>
+      <div class="side" style="gap:18px">
+        <div class="panel"><div class="panel-head"><h2>Qué conviene hacer</h2></div><div class="ai-box" id="analisis" style="color:var(--muted)">Tocá “Análisis de la IA”: la IA lee la demanda contra tu catálogo y te dice qué propiedades salir a conseguir.</div></div>
+        <div class="panel"><div class="panel-head"><h2>Visitas agendadas</h2></div><div class="list" id="visitas"></div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Leads · ordenados por temperatura</h2><small style="color:var(--muted)">“ejemplo” = dato precargado para la demo</small></div>
+      <div class="scroll-x"><table class="table"><thead><tr><th>Temp.</th><th>Cliente</th><th>Busca</th><th>Resumen para el asesor</th><th>Ingresó</th></tr></thead><tbody id="leads"></tbody></table></div>
+    </section>
+  </main>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="/panel.js"></script>
+</body>
+</html>
