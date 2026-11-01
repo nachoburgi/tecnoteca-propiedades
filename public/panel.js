@@ -24,7 +24,7 @@ function waLink(l) {
   let n = String(l.telefono || '').replace(/\D/g, '');
   if (n.length < 8) return '';
   if (!n.startsWith('54')) n = '549' + n.replace(/^0/, '');
-  const txt = `Hola ${l.nombre}! Soy asesor de Litoral Propiedades. Vi tu consulta con Lola: ${l.resumen} ¿Te ayudo a coordinar?`;
+  const txt = `Hola ${l.nombre}! Soy asesor de Tecnoteca Propiedades. Vi tu consulta con Lola: ${l.resumen} ¿Te ayudo a coordinar?`;
   return `<br><a class="wa-mini" target="_blank" rel="noopener" href="https://wa.me/${n}?text=${encodeURIComponent(txt)}">💬 WhatsApp</a>`;
 }
 

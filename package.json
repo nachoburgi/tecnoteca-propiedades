@@ -1,5 +1,5 @@
 {
-  "name": "litoral-propiedades-ia",
+  "name": "tecnoteca-propiedades-ia",
   "version": "1.0.0",
   "description": "Lola: agente de IA para inmobiliarias (chat + voz + panel del dueño). Hackatón DonWeb Day Rosario 2026.",
   "main": "server.js",

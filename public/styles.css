@@ -228,3 +228,6 @@ h1, h2, h3, .serif { font-family: 'DM Serif Display', Georgia, serif; font-weigh
 .t3d-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .t3d-foot span { color: var(--rojo2); font-weight: 600; font-size: .95rem; }
 .t3d-btns { display: flex; gap: 8px; }
+.call-now { margin-left: auto; background: #fff; color: var(--rojo); border: 1.5px solid var(--rojo); border-radius: 999px; padding: 8px 14px; font-weight: 700; min-height: 40px; }
+.call-tip { background: #fff8e6; color: #8a5a00; font-size: .85rem; padding: 8px 18px; border-bottom: 1px solid var(--line); }
+.call-tip[hidden] { display: none; }

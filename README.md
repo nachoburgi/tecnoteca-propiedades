@@ -1,4 +1,4 @@
-# Litoral Propiedades · Lola 🏠🤖
+# Tecnoteca Propiedades · Lola 🏠🤖
 
 > *"La inmobiliaria que nunca deja de atender el teléfono, y que además le dice al dueño qué propiedades conseguir."*
 

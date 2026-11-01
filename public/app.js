@@ -1,4 +1,4 @@
-// Litoral Propiedades · cliente (chat + voz + "lo que Lola está haciendo")
+// Tecnoteca Propiedades · cliente (chat + voz + "lo que Lola está haciendo")
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sid = (() => {
@@ -149,7 +149,7 @@ async function enviar(texto, opts = {}) {
 window.enviarMensaje = enviar;
 $('#form').addEventListener('submit', e => { e.preventDefault(); const v = $('#input').value; $('#input').value = ''; enviar(v); });
 
-addMsg('¡Hola! Soy Lola, de Litoral Propiedades 👋\nContame qué estás buscando y cómo es tu día a día (si tenés mascota, si trabajás desde casa, si tenés chicos…) y te muestro lo que mejor te queda.\nPodés escribirme, tocar un botón de abajo o tocar 🎤 y hablarme.', 'bot', 'Lola');
+addMsg('¡Hola! Soy Lola, de Tecnoteca Propiedades 👋\nContame qué estás buscando y cómo es tu día a día (si tenés mascota, si trabajás desde casa, si tenés chicos…) y te muestro lo que mejor te queda.\nPodés escribirme, tocar un botón de abajo o tocar 🎤 y hablarme.', 'bot', 'Lola');
 setQuick(QUICK_INICIO);
 
 // --- Voz: Web Speech API (es-AR) ---
@@ -159,14 +159,18 @@ function elegirVoz() {
   const vs = speechSynthesis.getVoices();
   // Voz de secretaria: primero voces femeninas naturales (neurales), argentinas si hay
   const es = vs.filter(v => /^es/i.test(v.lang));
-  const fem = /elena|helena|sabina|paloma|dalia|elvira|laura|lucia|paulina|monica|isabela|camila|valentina|female|mujer/i;
-  const natural = /natural|online|neural|google/i;
-  voz = es.find(v => v.lang === 'es-AR' && fem.test(v.name) && natural.test(v.name))
-    || es.find(v => fem.test(v.name) && natural.test(v.name))
-    || es.find(v => v.lang === 'es-AR' && fem.test(v.name))
-    || es.find(v => /google/i.test(v.name) && /es-(US|419|AR|MX)/i.test(v.lang))
-    || es.find(v => fem.test(v.name)) || es.find(v => v.lang === 'es-AR') || es[0] || null;
+  const fem = /elena|paloma|dalia|elvira|ximena|larissa|salome|catalina|camila|valentina|female|mujer/i;
+  const natural = /natural|online|neural/i;
+  // 1) Edge: voces neurales femeninas (Elena es argentina)  2) Chrome: Google español (EE.UU.)  3) lo que haya
+  voz = es.find(v => v.lang === 'es-AR' && natural.test(v.name) && fem.test(v.name))
+    || es.find(v => natural.test(v.name) && fem.test(v.name) && /es-(MX|US|419|CO|CL|UY)/i.test(v.lang))
+    || es.find(v => natural.test(v.name) && fem.test(v.name))
+    || es.find(v => /google/i.test(v.name) && /es-(US|419)/i.test(v.lang))
+    || es.find(v => /google/i.test(v.name))
+    || es.find(v => /helena|sabina|laura|paulina|monica/i.test(v.name)) || es[0] || null;
+  vozNatural = !!voz && natural.test(voz.name);
 }
+let vozNatural = false;
 if ('speechSynthesis' in window) { elegirVoz(); speechSynthesis.onvoiceschanged = elegirVoz; }
 const sinVoz = () => alert('Tu navegador no permite hablar 😕 Probá desde Google Chrome. Mientras tanto, podés escribirle a Lola o tocar los botones.');
 
@@ -230,44 +234,64 @@ function burbujaAudio(texto, quien, dur, meta) {
 }
 
 // Llamada: Lola escucha, responde hablando y vuelve a escuchar
+let escuchando = false, silencios = 0;
 function escuchar() {
-  if (!llamada || busy) return;
+  if (!llamada || busy || escuchando) return;
+  speechSynthesis.cancel();
+  escuchando = true;
   rec = new SR();
   rec.lang = 'es-AR'; rec.interimResults = true; rec.continuous = false;
   let final = '';
   rec.onresult = e => {
     let interim = '';
-    for (const r of e.results) { if (r.isFinal) final = r[0].transcript; else interim += r[0].transcript; }
+    for (const r of e.results) { if (r.isFinal) final += r[0].transcript; else interim += r[0].transcript; }
     setCall('🎙️ ' + (final || interim), true);
   };
-  rec.onerror = e => { if (e.error === 'not-allowed') { cortar(); alert('Necesito permiso para usar el micrófono.'); } };
+  rec.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { cortar(); alert('Necesito permiso para usar el micrófono: tocá el candado al lado de la dirección y permitilo.'); }
+    else if (e.error === 'audio-capture') { cortar(); alert('No encuentro un micrófono conectado.'); }
+  };
   rec.onend = () => {
+    escuchando = false;
     if (!llamada) return;
-    if (final.trim()) { setCall('Lola está buscando…', false); enviar(final); }
-    else setTimeout(escuchar, 250);
+    if (final.trim()) { silencios = 0; setCall('Lola está buscando…', false); enviar(final); }
+    else if (++silencios > 6) { silencios = 0; setCall('¿Seguís ahí? Tocá "Hablar ahora" cuando quieras', false); }
+    else setTimeout(escuchar, 200);
   };
   setCall('Te escucho… hablá tranquilo', true);
-  try { rec.start(); } catch {}
+  try { rec.start(); } catch { escuchando = false; }
 }
 
+// Lola habla frase por frase (más natural, y evita que Chrome corte audios largos)
+let hablaId = 0;
+window._frases = [];
 function hablar(texto, burbuja) {
   if (!('speechSynthesis' in window)) return escuchar();
-  speechSynthesis.cancel();
+  const id = ++hablaId;
+  speechSynthesis.cancel(); speechSynthesis.resume();
+  try { rec && escuchando && rec.abort(); } catch {}
   document.querySelectorAll('.msg.audio.sonando').forEach(b => b.classList.remove('sonando'));
   // Sin emojis ni símbolos, para que suene como una persona
-  const limpio = texto.replace(/[*_#]/g, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\bLP-(\d+)/g, 'propiedad $1');
-  const u = new SpeechSynthesisUtterance(limpio);
-  u.lang = voz?.lang || 'es-AR'; if (voz) u.voice = voz;
-  u.rate = 0.98; u.pitch = 1.08;
-  const fin = () => { burbuja?.classList.remove('sonando'); if (llamada) escuchar(); };
-  u.onend = fin; u.onerror = fin;
+  const limpio = texto.replace(/[*_#]/g, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\bLP-(\d+)/g, 'propiedad $1').replace(/\$\s?([\d.]+)\/mes/g, '$1 pesos por mes').replace(/USD\s?([\d.]+)/g, '$1 dólares');
+  const frases = limpio.match(/[^.!?¿¡]*[¿¡]?[^.!?]*[.!?]+|\S[^.!?]*$/g)?.map(f => f.trim()).filter(Boolean) || [limpio];
+  let terminado = false;
+  const fin = () => { if (terminado || id !== hablaId) return; terminado = true; clearTimeout(respaldo); burbuja?.classList.remove('sonando'); if (llamada) setTimeout(escuchar, 300); };
+  // Respaldo: si el navegador no avisa que terminó, abrimos el micrófono igual
+  const respaldo = setTimeout(fin, 2000 + limpio.length * 90);
+  window._frases = frases.map((f, i) => {
+    const u = new SpeechSynthesisUtterance(f);
+    u.lang = voz?.lang || 'es-AR'; if (voz) u.voice = voz;
+    u.rate = vozNatural ? 1 : 0.94; u.pitch = vozNatural ? 1.05 : 1.15; u.volume = 1;
+    if (i === frases.length - 1) { u.onend = fin; u.onerror = fin; }
+    return u;
+  });
   burbuja?.classList.add('sonando');
   setCall('🔊 Lola te está hablando…', true);
-  speechSynthesis.speak(u);
+  window._frases.forEach(u => speechSynthesis.speak(u));
 }
 
 function cortar() {
-  llamada = false;
+  llamada = false; escuchando = false; hablaId++;
   try { rec && rec.abort(); } catch {}
   speechSynthesis?.cancel();
   $('#btnCall').classList.remove('on'); $('#btnCall span').textContent = 'Hablar con Lola';
@@ -281,12 +305,15 @@ $('#btnCall').addEventListener('click', () => {
   $('#btnCall').classList.add('on'); $('#btnCall span').textContent = 'Cortar llamada';
   $('#callbar').classList.add('on');
   document.querySelector('.chat').scrollIntoView({ behavior: 'smooth' });
-  hablar('Hola, soy Lola de Litoral Propiedades. Contame, ¿qué estás buscando?');
+  silencios = 0;
+  if (!vozNatural) $('#callTip').hidden = false;
+  hablar('Hola, ¿cómo estás? Soy Lola, de Tecnoteca Propiedades. Contame tranquilo qué estás buscando.');
 });
+$('#callNow').addEventListener('click', () => { hablaId++; speechSynthesis.cancel(); silencios = 0; escuchar(); });
 
 // --- Seguir por WhatsApp (link oficial wa.me con el resumen de la charla) ---
 async function abrirWhatsApp() {
-  let texto = 'Hola Litoral Propiedades! Vengo de la web y quiero hacer una consulta 🏠', numero = '';
+  let texto = 'Hola Tecnoteca Propiedades! Vengo de la web y quiero hacer una consulta 🏠', numero = '';
   try { const j = await (await fetch('/api/resumen/' + sid)).json(); if (j.texto) texto = j.texto; numero = j.numero || ''; } catch {}
   window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
 }

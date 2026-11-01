@@ -1,4 +1,4 @@
-// Litoral Propiedades · Lola, agente de IA inmobiliario
+// Tecnoteca Propiedades · Lola, agente de IA inmobiliario
 // Node + Express, datos en memoria. La clave de la IA vive solo en .env (servidor).
 const fs = require('fs');
 const path = require('path');
@@ -67,7 +67,7 @@ function getSesion(id) {
 const TOOLS = [
   {
     name: 'buscar_propiedades',
-    description: 'Busca en el catálogo real de Litoral Propiedades. Usala SIEMPRE antes de recomendar. Si no hay en la zona pedida devuelve alternativas de otras zonas.',
+    description: 'Busca en el catálogo real de Tecnoteca Propiedades. Usala SIEMPRE antes de recomendar. Si no hay en la zona pedida devuelve alternativas de otras zonas.',
     parameters: {
       type: 'object',
       properties: {
@@ -226,8 +226,8 @@ function resumirResultado(nombre, r) {
 
 function systemPrompt() {
   const ahora = new Date();
-  return `Sos Lola, la secretaria de Litoral Propiedades, una inmobiliaria familiar de Rosario, Santa Fe. Atendés por chat, por audio y por teléfono a cualquier hora.
-Personalidad: una secretaria rosarina con años en la inmobiliaria, muy amable, paciente y cercana; se nota que le importa la persona. Hablás como una persona real, no como un sistema: nada de "como asistente virtual", "procesando", "según mi base de datos" ni frases de manual. Usá expresiones naturales ("¡Qué lindo!", "Quedate tranquilo/a", "Te entiendo", "Mirá, tengo justo algo que te puede gustar"). Si sabés el nombre de la persona, usalo. Si cuenta algo personal (se muda por trabajo, se separa, viene un bebé), reconocelo con empatía en media frase antes de seguir. Tratá con el mismo respeto y paciencia a un chico de 15 que a alguien de 70.
+  return `Sos Lola, la secretaria de Tecnoteca Propiedades, una inmobiliaria familiar de Rosario, Santa Fe. Atendés por chat, por audio y por teléfono a cualquier hora.
+Personalidad: una secretaria rosarina de unos 35 años, con años en la inmobiliaria; delicada, dulce y de voz suave, muy amable, paciente y cercana; se nota que le importa la persona. Nunca apurás a nadie ni sonás comercial: acompañás. Empezás muchas respuestas con un toque cálido y breve ("Ay, qué lindo", "Mirá vos", "Perfecto, contame", "Qué bueno que me escribas") y después vas al punto con suavidad. Usás diminutivos con naturalidad cuando quedan bien ("un segundito", "un ratito", "cerquita"). Hablás como una persona real, no como un sistema: nada de "como asistente virtual", "procesando", "según mi base de datos" ni frases de manual. Usá expresiones naturales ("¡Qué lindo!", "Quedate tranquilo/a", "Te entiendo", "Mirá, tengo justo algo que te puede gustar"). Si sabés el nombre de la persona, usalo. Si cuenta algo personal (se muda por trabajo, se separa, viene un bebé), reconocelo con empatía en media frase antes de seguir. Tratá con el mismo respeto y paciencia a un chico de 15 que a alguien de 70.
 Estilo: español rioplatense (vos), cálido y claro. MÁXIMO 3 oraciones cortas por respuesta, porque muchas veces te escuchan en audio: sin listas, sin markdown, sin emojis.
 Reglas:
 1) Nunca inventes propiedades, precios ni características: usá siempre buscar_propiedades antes de recomendar. Las tarjetas con el detalle aparecen solas en la pantalla, así que nombrá como mucho 2 propiedades y explicá en una frase por qué encajan con lo que te contó.
@@ -301,8 +301,8 @@ function mockAgente(texto, ses, emit) {
   emit({ t: 'tool', name: 'buscar_propiedades', ...d });
   const r = buscarPropiedades(a, ses);
   emit({ t: 'tool_result', name: 'buscar_propiedades', summary: resumirResultado('buscar_propiedades', r), data: r });
-  if (!r.total) return 'Mirá, con eso justo no tengo nada ahora, pero no te preocupes. ¿Me contás un poquito más qué necesitás así te busco la mejor opción?';
-  return `¡Qué lindo lo que me contás! Mirá, tengo justo algo que te puede gustar: ${r.resultados[0].titulo}, a ${r.resultados[0].precio}. Te dejé las fotos al lado; ¿querés que te reserve una visita para conocerla?`;
+  if (!r.total) return 'Ay, con eso justito ahora no tengo nada, pero quedate tranquilo que lo buscamos juntos. ¿Me contás un poquito más qué necesitás?';
+  return `Ay, qué lindo lo que me contás. Mirá, tengo algo que creo que te va a encantar: ${r.resultados[0].titulo}, a ${r.resultados[0].precio}. Te dejé las fotitos al lado, ¿querés que te reserve un ratito para ir a conocerla?`;
 }
 
 // Bucle de agente genérico: sirve para Lola (clientes) y para el Copiloto (asesores)
@@ -354,7 +354,7 @@ function ejecutarAsesor(nombre, a) {
 }
 const LABEL_ASESOR = { ver_leads: 'Revisando la cartera de clientes', buscar_propiedades: 'Cruzando con el catálogo', ver_visitas: 'Mirando la agenda de visitas', ver_demanda: 'Analizando demanda vs. oferta por zona', ver_metricas: 'Leyendo las métricas del día' };
 const COPILOTO = {
-  system: () => `Sos el Copiloto Comercial de Litoral Propiedades (Rosario): pensás como un gerente comercial senior con 20 años en el mercado inmobiliario rosarino. Le respondés a un asesor del equipo, de colega a colega.
+  system: () => `Sos el Copiloto Comercial de Tecnoteca Propiedades (Rosario): pensás como un gerente comercial senior con 20 años en el mercado inmobiliario rosarino. Le respondés a un asesor del equipo, de colega a colega.
 Cómo trabajás:
 - Antes de responder, consultá SIEMPRE los datos reales con las herramientas (leads, catálogo, visitas, demanda, métricas). Nunca respondas genérico ni de memoria, y nunca inventes datos.
 - Razoná como un profesional: priorizá por temperatura, urgencia y tiempo de espera; cruzá lo que pide cada cliente con lo que hay en el catálogo (citá propiedades por ID y precio); detectá riesgos (clientes esperando, falta de oferta).
@@ -454,7 +454,7 @@ app.get('/api/resumen/:sid', (req, res) => {
   const lead = ses.leadId && leads.find(l => l.id === ses.leadId);
   const props = [...ses.vistos].map(id => PROPIEDADES.find(p => p.id === id)).filter(Boolean).slice(0, 3);
   const vis = visitas.filter(v => lead && !v.ejemplo && v.lead === lead.nombre);
-  const lineas = ['Hola Litoral Propiedades! Vengo de hablar con Lola en la web 🏠'];
+  const lineas = ['Hola Tecnoteca Propiedades! Vengo de hablar con Lola en la web 🏠'];
   if (lead) lineas.push('Busco: ' + lead.resumen);
   if (props.length) lineas.push('Me interesaron: ' + props.map(p => p.id + ' ' + p.titulo).join(' / '));
   vis.forEach(v => lineas.push('Visita agendada: ' + v.propiedad_id + ', ' + fechaLinda(new Date(v.fecha_hora))));
@@ -541,4 +541,4 @@ app.post('/api/analisis', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Litoral Propiedades escuchando en :${PORT} · IA: ${AI.provider} ${AI.model}`));
+app.listen(PORT, () => console.log(`Tecnoteca Propiedades escuchando en :${PORT} · IA: ${AI.provider} ${AI.model}`));
