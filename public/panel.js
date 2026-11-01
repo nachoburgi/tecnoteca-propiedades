@@ -50,7 +50,7 @@ function render(d) {
   }).join('');
   primera = false;
 
-  $('#visitas').innerHTML = d.visitas.length ? d.visitas.map(v => `<div class="list-item"><b>${esc(v.cuando)}</b>${v.ejemplo ? '<span class="ej">ejemplo</span>' : ''}<small>${esc(v.propiedad_id)} · ${esc(v.propiedad)} — ${esc(v.lead)}</small></div>`).join('')
+  $('#visitas').innerHTML = d.visitas.length ? d.visitas.map(v => `<div class="list-item"><b>${esc(v.cuando)}</b>${v.ejemplo ? '<span class="ej">ejemplo</span>' : ''}<small>${esc(v.propiedad_id)} · ${esc(v.propiedad)} — ${esc(v.lead)}</small>${(v.notas || []).map(n => `<small style="color:#8a5a00">📌 ${esc(n)}</small>`).join("")}</div>`).join('')
     : '<div class="list-item"><small>Todavía no hay visitas.</small></div>';
 
   if (capa) {

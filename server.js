@@ -452,6 +452,19 @@ app.post('/api/asesor', async (req, res) => {
   }
 });
 
+// Notas que el cliente deja recorriendo el 3D ("recordame revisar la humedad del dormitorio")
+app.post('/api/nota', (req, res) => {
+  const { sessionId, propiedad_id, ambiente, texto } = req.body || {};
+  if (!validSid(sessionId) || !sesiones.has(sessionId) || typeof texto !== 'string' || !texto.trim()) return res.status(400).json({ error: 'Nota inválida' });
+  const ses = sesiones.get(sessionId);
+  const nota = `${String(ambiente || '').slice(0, 40)}: ${texto.trim().slice(0, 300)}`;
+  const lead = ses.leadId && leads.find(l => l.id === ses.leadId);
+  if (lead) (lead.notas ||= []).push(nota);
+  const vis = [...visitas].reverse().find(v => !v.ejemplo && v.propiedad_id === propiedad_id && (!lead || v.lead === lead.nombre));
+  if (vis) (vis.notas ||= []).push(nota);
+  res.json({ ok: true });
+});
+
 // Resumen de la conversación para seguir por WhatsApp
 app.get('/api/resumen/:sid', (req, res) => {
   if (!validSid(req.params.sid) || !sesiones.has(req.params.sid)) return res.json({ texto: '', numero: WHATSAPP });

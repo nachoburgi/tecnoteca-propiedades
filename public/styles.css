@@ -242,3 +242,22 @@ h1, h2, h3, .serif { font-family: 'DM Serif Display', Georgia, serif; font-weigh
 .visita-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .visita-btns .ver3d { flex: 1 1 100%; border-radius: 12px; padding: 11px; font-weight: 700; min-height: 46px; }
 .visita-btns .pill { flex: 1; text-align: center; }
+
+/* Recorrido por ambientes */
+.t3d-rooms { display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.t3d-rooms .chip { white-space: nowrap; min-height: 40px; padding: 8px 14px; font-size: .9rem; }
+.t3d-rooms .chip.on { background: var(--rojo); color: #fff; }
+.t3d-stage { flex: 1; min-height: 0; position: relative; display: flex; }
+.t3d-stage .t3d-canvas { flex: 1; }
+.t3d-panel { position: absolute; left: 14px; top: 14px; width: min(340px, calc(100% - 28px)); background: rgba(255, 255, 255, .96); border-radius: 16px; padding: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .2); display: flex; flex-direction: column; gap: 8px; animation: slide .35s ease both; max-height: calc(100% - 28px); overflow-y: auto; }
+.t3d-panel[hidden] { display: none; }
+.t3d-amb { font-family: 'DM Serif Display', Georgia, serif; font-size: 1.25rem; }
+.t3d-resp { font-size: .92rem; line-height: 1.45; color: var(--gris); background: var(--rojo-suave); border-radius: 10px; padding: 8px 10px; }
+.t3d-panel input { border: 1.5px solid var(--line); border-radius: 12px; padding: 11px 12px; font: inherit; outline: none; }
+.t3d-panel input:focus { border-color: var(--rojo); }
+.t3d-acc { display: flex; gap: 8px; flex-wrap: wrap; }
+.t3d-acc .btn { min-height: 42px; font-size: .9rem; padding: 0 12px; }
+.t3d-acc .pill { font-size: .85rem; }
+.t3d-notas { margin: 0; padding-left: 18px; font-size: .88rem; color: var(--rojo2); }
+.t3d-notas:empty { display: none; }
+.visita-notas { margin: 6px 0 0; padding: 8px 10px 8px 26px; background: #fff8e6; border-radius: 8px; font-size: .86rem; color: #8a5a00; }

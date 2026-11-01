@@ -3,7 +3,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const $ = s => document.querySelector(s);
-let renderer, scene, camera, controls, raf, vuelo, noche = false, luces = {};
+let renderer, scene, camera, controls, raf, anim = null, noche = false, luces = {};
+let AMB = [], paredes = [], propActual = null, ambActual = null;
+const ALTO = 1.5;
+// Animación de cámara (motion): posición y punto de mira, con easing
+function animarA(pos, mira, ms = 1600, alTerminar) {
+  anim = { p0: camera.position.clone(), p1: pos, t0v: controls.target.clone(), t1: mira, ini: performance.now(), ms, alTerminar };
+}
 
 function caja(w, h, d, color, x, y, z, opts = {}) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, roughness: opts.rough ?? .8, metalness: 0, transparent: !!opts.op, opacity: opts.op ?? 1, emissive: opts.emissive || 0x000000, emissiveIntensity: opts.ei || 0 }));
@@ -33,7 +39,7 @@ function construir(p, contado) {
   const amb = Math.max(1, p.ambientes);
   const esCasa = p.tipo === 'casa' || p.tipo === 'ph';
   const W = esCasa ? 12 : 9 + amb, D = esCasa ? 9 : 7;
-  const H = 1.5, e = .15;
+  const H = ALTO, e = .15;
   const piso = 0xd9b98c, pared = 0xf4efe9;
   const items = [];
 
@@ -62,6 +68,7 @@ function construir(p, contado) {
         caja(Math.min(1.6, anchoD * .7), .5, 2, 0xffffff, x0, 0, -D / 2 + 1.2); // cama
         caja(Math.min(1.6, anchoD * .7), .25, .6, 0xc8102e, x0, .5, -D / 2 + .5); // almohadas
         cartel(i === 0 ? 'Dormitorio' : 'Dormitorio ' + (i + 1), x0, 2.3, -D * .25, '#6b6560');
+        AMB.push({ nombre: i === 0 ? 'Dormitorio' : 'Dormitorio ' + (i + 1), icono: '🛏', x: x0, z: -D / 2 + 2.6, mira: [x0, .6, -D / 2 + .6] });
       }
     }
   }
@@ -72,13 +79,15 @@ function construir(p, contado) {
   caja(1.6, .75, .9, 0x8a6a4a, xl, 0, -D / 2 + 1.3); // comedor
   caja(2, .9, .6, 0xffffff, -W / 2 + 1.1, 0, -D / 2 + .4); // cocina
   cartel(amb === 1 ? 'Ambiente único' : 'Living · cocina', xl, 2.3, 0, '#6b6560');
+  AMB.unshift({ nombre: amb === 1 ? 'Ambiente único' : 'Living', icono: '🛋', x: xl, z: -D / 2 + 2.4, mira: [xl, .6, D / 2 - 1.6] });
+  AMB.splice(1, 0, { nombre: 'Cocina', icono: '🍳', x: -W / 2 + 2.2, z: -D / 2 + 2.6, mira: [-W / 2 + 1.1, .9, -D / 2 + .4] });
 
   // Personalización según lo que contó el cliente
   if (tags.has('home office') || pidio.has('home office')) {
     const [x, z] = items.find(i => i[0] === 'home office')?.slice(1) || [xl - 1.2, -.4];
     caja(1.4, .75, .7, 0xf4efe9, x, 0, z); caja(.7, .45, .05, 0x1f1d1b, x, .75, z - .2, { emissive: 0x3b82f6, ei: .6 });
     caja(.5, .9, .5, 0xc8102e, x, 0, z + .7);
-    cartel('💻 Tu home office', x, 2.6, z); if (pidio.has('home office')) destacar(x, z);
+    cartel('💻 Tu home office', x, 2.6, z); AMB.push({ nombre: 'Home office', icono: '💻', x: x + .2, z: z + 2.2, mira: [x, .9, z - .2] }); if (pidio.has('home office')) destacar(x, z);
   }
   if (p.mascotas && (tags.has('mascotas') || pidio.has('mascotas'))) {
     const x = xl + 1.7, z = D / 2 - 2.6;
@@ -92,7 +101,7 @@ function construir(p, contado) {
     const tronco = caja(.25, 1.6, .25, 0x7a5a3a, -W / 2 + 1.5, 0, -D / 2 - 3);
     const copa = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 16), new THREE.MeshStandardMaterial({ color: 0x4f8f45 }));
     copa.position.set(tronco.position.x, 2.3, tronco.position.z); copa.castShadow = true; scene.add(copa);
-    cartel('🌳 Patio', 0, 1.6, -D / 2 - 2.6, '#15803d');
+    cartel('🌳 Patio', 0, 1.6, -D / 2 - 2.6, '#15803d'); AMB.push({ nombre: 'Patio', icono: '🌳', x: 2, z: -D / 2 - 1.2, mira: [-W / 2 + 1.5, 1.4, -D / 2 - 3] });
   }
   if (/pileta/i.test(p.descripcion)) {
     caja(3.5, .05, 1.8, 0x38bdf8, W / 2 - 2.4, .02, -D / 2 - 2.4, { op: .9, emissive: 0x0ea5e9, ei: .25 });
@@ -100,7 +109,7 @@ function construir(p, contado) {
   }
   if (tags.has('balcón')) {
     caja(W * .5, .1, 1.4, 0xcfc8c1, 0, .4, D / 2 + .75); caja(W * .5, .9, .05, 0xbfe3f5, 0, .5, D / 2 + 1.45, { op: .5 });
-    cartel('Balcón', 0, 2.2, D / 2 + .9, '#6b6560');
+    cartel('Balcón', 0, 2.2, D / 2 + .9, '#6b6560'); AMB.push({ nombre: 'Balcón', icono: '🌅', x: 0, z: D / 2 - .4, mira: [0, 1.2, D / 2 + 8] });
   }
   if (p.cochera) {
     caja(1.8, .7, 3.6, 0xc8102e, W / 2 + 2.2, .1, 1, { rough: .3 }); caja(1.6, .5, 1.8, 0x1f1d1b, W / 2 + 2.2, .8, 1.2, { rough: .2 });
@@ -116,6 +125,8 @@ function construir(p, contado) {
     caja(.35, .4, .35, 0xa0522d, x, 0, z);
     const h = new THREE.Mesh(new THREE.SphereGeometry(.35, 12, 10), new THREE.MeshStandardMaterial({ color: 0x4f8f45 })); h.position.set(x, .75, z); scene.add(h);
   });
+  // Paredes: se registran para "subirlas" cuando entrás a un ambiente
+  scene.children.forEach(m => { if (m.isMesh && m.geometry.parameters?.height === H && m.material.color.getHex() === pared) paredes.push(m); });
   return { W, D };
 }
 
@@ -150,7 +161,7 @@ window.abrir3D = (p, contado) => {
 
   const cont = $('#t3dCanvas');
   cont.innerHTML = '';
-  scene = new THREE.Scene(); anillos.length = 0; luces = {};
+  scene = new THREE.Scene(); anillos.length = 0; luces = {}; AMB = []; paredes = []; propActual = p; ambActual = null; $('#t3dPanel').hidden = true;
   camera = new THREE.PerspectiveCamera(45, cont.clientWidth / cont.clientHeight, .1, 200);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -159,29 +170,31 @@ window.abrir3D = (p, contado) => {
   cont.appendChild(renderer.domElement);
   luz(); noche = false; aplicarNoche();
   construir(p, contado);
+  $('#t3dRooms').innerHTML = '<button class="chip on" data-i="-1">🏠 Vista general</button>' + AMB.map((a, i) => `<button class="chip" data-i="${i}">${a.icono} Entrar: ${a.nombre}</button>`).join('');
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.15; controls.minDistance = 4; controls.maxDistance = 40;
   controls.autoRotate = false; controls.autoRotateSpeed = .8;
 
   // Motion: la cámara "vuela" desde el cielo hasta la propiedad
-  const desde = new THREE.Vector3(0, 45, 40), hasta = new THREE.Vector3(5.5, 10.5, 8.5), t0 = performance.now();
+  const desde = new THREE.Vector3(0, 45, 40), hasta = new THREE.Vector3(5.5, 10.5, 8.5);
   camera.position.copy(desde); controls.target.set(0, 0, 0);
-  vuelo = true;
   const ease = t => 1 - Math.pow(1 - t, 3);
+  animarA(hasta, new THREE.Vector3(0, 0, 0), 2600, () => { controls.autoRotate = true; });
   cancelAnimationFrame(raf);
   const loop = now => {
     raf = requestAnimationFrame(loop);
-    if (vuelo) {
-      const t = Math.min(1, (now - t0) / 2600);
-      camera.position.lerpVectors(desde, hasta, ease(t));
-      if (t >= 1) { vuelo = false; controls.autoRotate = true; }
+    if (anim) {
+      const t = Math.min(1, (now - anim.ini) / anim.ms), k = ease(t);
+      camera.position.lerpVectors(anim.p0, anim.p1, k);
+      controls.target.lerpVectors(anim.t0v, anim.t1, k);
+      if (t >= 1) { const f = anim.alTerminar; anim = null; f?.(); }
     }
     anillos.forEach(a => { const s = 1 + .15 * Math.sin(now / 300); a.scale.set(s, s, s); a.material.opacity = .5 + .4 * Math.sin(now / 300); });
     if (luces.rio) luces.rio.material.color.setHSL(.55, .45, .52 + .03 * Math.sin(now / 700));
     controls.update(); renderer.render(scene, camera);
   };
   raf = requestAnimationFrame(loop);
-  renderer.domElement.addEventListener('pointerdown', () => { vuelo = false; controls.autoRotate = false; });
+  renderer.domElement.addEventListener('pointerdown', () => { controls.autoRotate = false; });
 };
 
 function cerrar() { $('#tour3d').hidden = true; cancelAnimationFrame(raf); renderer?.dispose(); }
@@ -190,3 +203,57 @@ $('#t3dNoche').addEventListener('click', () => { noche = !noche; aplicarNoche();
 $('#t3dVisitar').addEventListener('click', () => { const t = $('#t3dTitulo').textContent; cerrar(); window.enviarMensaje?.(`Me encantó "${t}" en 3D, ¿la puedo ir a ver?`); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#tour3d').hidden) cerrar(); });
 addEventListener('resize', () => { if (!renderer || $('#tour3d').hidden) return; const c = $('#t3dCanvas'); camera.aspect = c.clientWidth / c.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(c.clientWidth, c.clientHeight); });
+
+// --- Entrar a cada ambiente: cámara a la altura de los ojos, paredes a altura real ---
+function alturaParedes(alto) {
+  const k = alto / ALTO;
+  paredes.forEach(m => { m.scale.y = k; m.position.y = alto / 2; });
+  scene.children.forEach(o => { if (o.isSprite) o.visible = alto <= ALTO; });
+}
+function vistaGeneral() {
+  ambActual = null; $('#t3dPanel').hidden = true;
+  alturaParedes(ALTO);
+  controls.minDistance = 4; controls.maxPolarAngle = Math.PI / 2.15;
+  animarA(new THREE.Vector3(5.5, 10.5, 8.5), new THREE.Vector3(0, 0, 0), 1400, () => { controls.autoRotate = true; });
+}
+function entrar(a) {
+  ambActual = a; controls.autoRotate = false;
+  alturaParedes(2.6);
+  controls.minDistance = .2; controls.maxPolarAngle = Math.PI * .62;
+  animarA(new THREE.Vector3(a.x, 1.6, a.z), new THREE.Vector3(...a.mira), 1700);
+  $('#t3dAmb').textContent = a.icono + ' Estás en: ' + a.nombre;
+  $('#t3dResp').textContent = 'Arrastrá para mirar alrededor. Preguntale a Lola lo que quieras de este ambiente, o anotá algo para revisar en la visita.';
+  $('#t3dPreg').value = '';
+  $('#t3dPanel').hidden = false;
+  renderNotas();
+}
+$('#t3dRooms').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  document.querySelectorAll('#t3dRooms .chip').forEach(c => c.classList.toggle('on', c === b));
+  const i = Number(b.dataset.i);
+  i < 0 ? vistaGeneral() : entrar(AMB[i]);
+});
+// Preguntarle a Lola sobre el ambiente (responde en el recorrido y en voz alta)
+$('#t3dAsk').addEventListener('click', async () => {
+  const q = $('#t3dPreg').value.trim(); if (!q || !ambActual || !window.enviarMensaje) return;
+  const b = $('#t3dAsk'); b.disabled = true; $('#t3dResp').textContent = 'Lola está mirando la ficha…';
+  await window.enviarMensaje(`Estoy recorriendo en 3D "${propActual.titulo}" (${propActual.id}), en el ambiente ${ambActual.nombre}: ${q}`);
+  const ult = [...document.querySelectorAll('#msgs .msg.bot')].pop();
+  const txt = ult ? (ult.querySelector('.transcripcion')?.textContent || ult.childNodes[0]?.textContent || '') : '';
+  $('#t3dResp').textContent = txt || 'No pude responder ahora, probá de nuevo.';
+  if (txt) window.hablarLola?.(txt);
+  b.disabled = false; $('#t3dPreg').value = '';
+});
+$('#t3dPreg').addEventListener('keydown', e => { if (e.key === 'Enter') $('#t3dAsk').click(); });
+// Notas para la visita: quedan en el calendario y en el panel del asesor
+$('#t3dNota').addEventListener('click', () => {
+  const q = $('#t3dPreg').value.trim(); if (!q || !ambActual) { $('#t3dResp').textContent = 'Escribí arriba qué querés que te recuerde (ej: "ver si hay humedad") y tocá 📌.'; return; }
+  window.anotarVisita?.(propActual.id, ambActual.nombre, q);
+  $('#t3dPreg').value = '';
+  $('#t3dResp').textContent = '📌 Listo, lo anoté. Te lo recuerdo en la visita y el asesor también lo va a tener.';
+  renderNotas();
+});
+function renderNotas() {
+  const n = (window.notasVisita?.[propActual?.id] || []);
+  $('#t3dNotas').innerHTML = n.map(x => `<li><b>${x.ambiente.replace(/[<>&]/g, '')}:</b> ${x.texto.replace(/[<>&]/g, '')}</li>`).join('');
+}

@@ -68,7 +68,16 @@
         <div><div class="t3d-tag">Recorrido 3D</div><h2 id="t3dTitulo"></h2><small id="t3dSub"></small></div>
         <button class="t3d-x" id="t3dCerrar" aria-label="Cerrar">✕</button>
       </div>
-      <div class="t3d-canvas" id="t3dCanvas"></div>
+      <div class="t3d-rooms" id="t3dRooms"></div>
+      <div class="t3d-stage"><div class="t3d-canvas" id="t3dCanvas"></div>
+        <div class="t3d-panel" id="t3dPanel" hidden>
+          <div class="t3d-amb" id="t3dAmb"></div>
+          <div class="t3d-resp" id="t3dResp"></div>
+          <input id="t3dPreg" maxlength="300" placeholder="Ej: ¿le da el sol a la mañana?">
+          <div class="t3d-acc"><button class="btn" id="t3dAsk">💬 Preguntarle a Lola</button><button class="pill" id="t3dNota">📌 Recordame revisar esto</button></div>
+          <ul class="t3d-notas" id="t3dNotas"></ul>
+        </div>
+      </div>
       <div class="t3d-foot">
         <span id="t3dPersonal"></span>
         <div class="t3d-btns"><button class="pill" id="t3dNoche">🌙 Ver de noche</button><button class="btn" id="t3dVisitar">📅 Quiero visitarla</button></div>

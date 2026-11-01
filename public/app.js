@@ -153,9 +153,7 @@ function tarjetaVisita(v) {
   const f = v.ficha;
   if (!f) return;
   datosProp.set(f.id, { ...(datosProp.get(f.id) || {}), ...f });
-  const ini = new Date(v.fecha), fin = new Date(ini.getTime() + 45 * 60000);
-  const gcal = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const cal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Visita: ' + f.titulo)}&dates=${gcal(ini)}/${gcal(fin)}&details=${encodeURIComponent('Visita agendada con Lola · Tecnoteca Propiedades')}&location=${encodeURIComponent(f.direccion + ', Rosario, Santa Fe')}`;
+  const cal = linkCalendario(v);
   const mapa = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(f.direccion + ', Rosario, Santa Fe')}`;
   const d = document.createElement('div');
   d.className = 'msg bot visita';
@@ -168,13 +166,40 @@ function tarjetaVisita(v) {
       <div class="visita-btns">
         <button class="ver3d" data-id="${esc(f.id)}">🧊 Entrar en 3D</button>
         <a class="pill" href="${mapa}" target="_blank" rel="noopener">📍 Cómo llegar</a>
-        <a class="pill" href="${cal}" target="_blank" rel="noopener">📅 A mi calendario</a>
+        <a class="pill cal" href="${cal}" target="_blank" rel="noopener">📅 A mi calendario</a>
       </div>
+      <ul class="visita-notas" hidden></ul>
     </div>`;
   d.querySelector('.ver3d').addEventListener('click', () => window.abrir3D?.(datosProp.get(f.id)));
+  visitasCliente[f.id] = { v, el: d };
   msgs.appendChild(d);
   msgs.scrollTop = msgs.scrollHeight;
 }
+
+// Evento de Google Calendar con las notas que el cliente dejó en el recorrido 3D
+function linkCalendario(v) {
+  const f = v.ficha, ini = new Date(v.fecha), fin = new Date(ini.getTime() + 45 * 60000);
+  const gcal = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const notas = (notasVisita[f.id] || []).map(n => `• ${n.ambiente}: ${n.texto}`).join('\n');
+  const det = 'Visita agendada con Lola · Tecnoteca Propiedades' + (notas ? '\n\nPara revisar en la visita:\n' + notas : '');
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Visita: ' + f.titulo)}&dates=${gcal(ini)}/${gcal(fin)}&details=${encodeURIComponent(det)}&location=${encodeURIComponent(f.direccion + ', Rosario, Santa Fe')}`;
+}
+const visitasCliente = {};
+window.notasVisita = {};
+const notasVisita = window.notasVisita;
+window.anotarVisita = (propId, ambiente, texto) => {
+  (notasVisita[propId] ||= []).push({ ambiente, texto });
+  fetch('/api/nota', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: sid, propiedad_id: propId, ambiente, texto }) }).catch(() => {});
+  const vc = visitasCliente[propId];
+  if (vc) {
+    vc.el.querySelector('a.cal').href = linkCalendario(vc.v);
+    const ul = vc.el.querySelector('.visita-notas');
+    ul.hidden = false;
+    ul.innerHTML = '<b>📌 Para revisar en la visita</b>' + notasVisita[propId].map(n => `<li>${esc(n.ambiente)}: ${esc(n.texto)}</li>`).join('');
+  }
+  brainStep('📌', 'Anotando para tu visita', `${ambiente}: ${texto}`, 'ok');
+};
+window.hablarLola = t => hablar(t);
 
 window.enviarMensaje = enviar;
 $('#form').addEventListener('submit', e => { e.preventDefault(); const v = $('#input').value; $('#input').value = ''; enviar(v); });
