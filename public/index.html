@@ -23,6 +23,7 @@
   </header>
 
   <section class="hero">
+    <svg class="skyline" id="skyline" viewBox="0 0 1400 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true"></svg>
     <div class="hero-in">
       <div>
         <h1>Encontrá tu lugar en Rosario</h1>
@@ -61,6 +62,42 @@
     </aside>
   </main>
   <div class="tour" id="tour" hidden><div class="tour-paso" id="tourPaso"></div><div class="tour-txt" id="tourTxt"></div><div class="tour-btns"><button class="tour-salir" id="tourSalir">Salir</button><button class="btn" id="tourSig">Siguiente ▶</button></div></div>
+  <div class="t3d" id="tour3d" hidden>
+    <div class="t3d-box">
+      <div class="t3d-head">
+        <div><div class="t3d-tag">Recorrido 3D</div><h2 id="t3dTitulo"></h2><small id="t3dSub"></small></div>
+        <button class="t3d-x" id="t3dCerrar" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="t3d-canvas" id="t3dCanvas"></div>
+      <div class="t3d-foot">
+        <span id="t3dPersonal"></span>
+        <div class="t3d-btns"><button class="pill" id="t3dNoche">🌙 Ver de noche</button><button class="btn" id="t3dVisitar">📅 Quiero visitarla</button></div>
+      </div>
+    </div>
+  </div>
+  <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
   <script src="/app.js"></script>
+  <script type="module" src="/tour3d.js"></script>
+  <script>
+    // Motion graphics: skyline de Rosario (Monumento a la Bandera, edificios, puente y el río)
+    (() => {
+      const svg = document.getElementById('skyline');
+      let h = '', x = 0, i = 0;
+      while (x < 1400) {
+        const w = 26 + (i * 37) % 34, alto = 40 + (i * 53) % 90;
+        if (Math.abs(x - 560) < 40) { x += 40; i++; continue; }
+        h += `<g class="bld" style="animation-delay:${(i % 14) * 70}ms"><rect x="${x}" y="${150 - alto}" width="${w}" height="${alto}" rx="2"/>`;
+        for (let wy = 150 - alto + 8; wy < 140; wy += 14) for (let wx = x + 5; wx < x + w - 6; wx += 9)
+          if ((wx * 7 + wy * 3 + i) % 5 === 0) h += `<rect class="win" x="${wx}" y="${wy}" width="4" height="6" style="animation-delay:${(wx + wy) % 4000}ms"/>`;
+        h += '</g>'; x += w + 4; i++;
+      }
+      // Monumento a la Bandera
+      h += `<g class="bld mon" style="animation-delay:300ms"><rect x="540" y="138" width="70" height="12"/><polygon points="568,138 582,138 579,8 571,8"/><rect x="520" y="130" width="110" height="8"/></g>`;
+      // Puente Rosario-Victoria (tirantes)
+      h += `<g class="puente"><line x1="1180" y1="20" x2="1180" y2="150"/><line x1="1300" y1="20" x2="1300" y2="150"/>${[0,1,2,3,4].map(k => `<line x1="1180" y1="${24+k*6}" x2="${1100+k*16}" y2="140"/><line x1="1180" y1="${24+k*6}" x2="${1200+k*18}" y2="140"/><line x1="1300" y1="${24+k*6}" x2="${1222+k*16}" y2="140"/><line x1="1300" y1="${24+k*6}" x2="${1320+k*16}" y2="140"/>`).join('')}<line x1="1060" y1="140" x2="1400" y2="140"/></g>`;
+      h += `<path class="ola" d="M0 152 Q 35 146 70 152 T 140 152 T 210 152 T 280 152 T 350 152 T 420 152 T 490 152 T 560 152 T 630 152 T 700 152 T 770 152 T 840 152 T 910 152 T 980 152 T 1050 152 T 1120 152 T 1190 152 T 1260 152 T 1330 152 T 1400 152 T 1470 152 V160 H0Z"/>`;
+      svg.innerHTML = h;
+    })();
+  </script>
 </body>
 </html>

@@ -8,7 +8,7 @@ const sid = (() => {
 
 const msgs = $('#msgs'), brain = $('#brain'), cards = $('#cards');
 let busy = false, hayTarjetas = false, visitaHecha = false;
-const tarjetas = new Map();
+const tarjetas = new Map(), datosProp = new Map();
 const ICON = { buscar_propiedades: '🔎', crear_lead: '📝', agendar_visita: '📅' };
 
 // Respuestas rápidas: para que cualquiera pueda usarlo sin escribir
@@ -58,16 +58,20 @@ function renderCards(resultados) {
         <p>${esc(p.descripcion)}</p>
         ${match.length ? `<div class="porque"><b>Te queda bien porque:</b> ${esc(match.join(' · '))}</div>` : ''}
         <div class="card-actions">
+          <button class="ver3d" data-id="${esc(p.id)}">🧊 Entrar en 3D</button>
           <button class="visitar" data-id="${esc(p.id)}" data-titulo="${esc(p.titulo)}">📅 Quiero visitarla</button>
           <button class="imagine" data-id="${esc(p.id)}">✨ Imaginá tu vida acá</button>
         </div>
       </div>`;
     tarjetas.set(p.id, c);
+    datosProp.set(p.id, p);
     cards.prepend(c);
   });
 }
 
 cards.addEventListener('click', async e => {
+  const t3 = e.target.closest('.ver3d');
+  if (t3) return window.abrir3D ? window.abrir3D(datosProp.get(t3.dataset.id)) : alert('Cargando el recorrido 3D, probá en un segundo.');
   const v = e.target.closest('.visitar');
   if (v) return enviar(`Quiero visitar "${v.dataset.titulo}" (${v.dataset.id}). ¿Qué días hay?`);
   const b = e.target.closest('.imagine');
@@ -142,6 +146,7 @@ async function enviar(texto, opts = {}) {
   if (llamada || (opts.audio && respuesta.t !== 'error')) hablar(respuesta.text, burbuja);
 }
 
+window.enviarMensaje = enviar;
 $('#form').addEventListener('submit', e => { e.preventDefault(); const v = $('#input').value; $('#input').value = ''; enviar(v); });
 
 addMsg('¡Hola! Soy Lola, de Litoral Propiedades 👋\nContame qué estás buscando y cómo es tu día a día (si tenés mascota, si trabajás desde casa, si tenés chicos…) y te muestro lo que mejor te queda.\nPodés escribirme, tocar un botón de abajo o tocar 🎤 y hablarme.', 'bot', 'Lola');
